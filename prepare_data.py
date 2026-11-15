@@ -49,8 +49,5 @@ def load_metadata(path: Path) -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    # First look at the data: size, column types and one example game
     df = load_metadata(download_metadata())
-    print(df.shape)
-    print(df.dtypes)
-    print(df.iloc[0])
+    print("Loaded:", df.shape)
