@@ -17,9 +17,15 @@ REPO = "FronkonGames/steam-games-dataset"
 REVISION = "6c21457b9ebf0a6a7f5b91e11281d65d456ea30e"
 # Složka pro stažená, neupravená data
 RAW_DIR = Path("data/raw")
+# Složka pro vyčištěná a rozdělená data
+PROCESSED_DIR = Path("data/processed")
 
 # Poslední ponechaný rok vydání: do tohoto roku jsou počty recenzí spolehlivé (eda.ipynb, sekce 6)
 MAX_RELEASE_YEAR = 2023
+# Časové rozdělení podle roku vydání: train do TRAIN_END_YEAR včetně,
+# validace VAL_YEAR, test MAX_RELEASE_YEAR
+TRAIN_END_YEAR = 2021
+VAL_YEAR = 2022
 # Počet screenshotů, které používá model
 MIN_SCREENSHOTS = 3
 # Žánry softwaru (ne her); záznamy pouze s těmito žánry se vyřadí
@@ -137,6 +143,28 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
     return df[KEEP_COLS]
 
 
+
+def split(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Rozdělí data podle roku vydání na trénovací, validační a testovací množinu.
+
+    Args:
+        df: Vyčištěná data z clean().
+
+    Returns:
+        Trojice (train, val, test).
+    """
+    year = df["release"].dt.year
+    train = df[year <= TRAIN_END_YEAR]
+    val = df[year == VAL_YEAR]
+    test = df[year == MAX_RELEASE_YEAR]
+    return train, val, test
+
+
 if __name__ == "__main__":
     df = clean(load_metadata(download_metadata()))
-    print("Vyčištěno:", df.shape)
+    train, val, test = split(df)
+
+    PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
+    for name, part in [("train", train), ("val", val), ("test", test)]:
+        part.to_pickle(PROCESSED_DIR / f"{name}.pkl")
+        print(f"{name}: {len(part)} her")
