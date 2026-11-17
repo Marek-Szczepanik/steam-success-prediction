@@ -31,7 +31,7 @@ SEEDS = [123, 420, 666]
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 # Hyperparametry trénování neuronových sítí
-EPOCHS = 30
+EPOCHS = 15
 BATCH_SIZE = 256
 IMAGE_BATCH_SIZE = 64      # modely s obrázky (4 obrázky na vzorek)
 NUM_WORKERS = 6            # procesy pro paralelní načítání obrázků
@@ -80,8 +80,9 @@ def image_loader(X: pd.DataFrame, y: pd.Series, split: str, shuffle: bool) -> Da
 def predict(model: nn.Module, loader: DataLoader) -> np.ndarray:
     """Vrátí predikce modelu pro všechny hry v loaderu."""
     model.eval()                    # režim inference
-    with torch.no_grad():           # autograd nic nezaznamenává
-        pred = torch.cat([model(*[x.to(DEVICE) for x in xb]).cpu() for *xb, _ in loader])
+    # autograd nic nezaznamenává, výpočet v bfloat16 (mixed precision)
+    with torch.no_grad(), torch.autocast(DEVICE, dtype=torch.bfloat16):
+        pred = torch.cat([model(*[x.to(DEVICE) for x in xb]).float().cpu() for *xb, _ in loader])
     model.train()                   # zpět do trénovacího režimu
     return pred.numpy()
 
@@ -103,7 +104,9 @@ def train_model(model: nn.Module, loss_fn: nn.Module, optimizer: torch.optim.Opt
         total_loss, n_games = 0.0, 0
         for *xb, yb in train_loader:            # dávka: jeden krok; xb = vstupy modelu
             xb, yb = [x.to(DEVICE) for x in xb], yb.to(DEVICE)
-            loss = loss_fn(model(*xb), yb)      # 1 dopředný průchod a loss
+            with torch.autocast(DEVICE, dtype=torch.bfloat16):   # mixed precision: výpočet v 16 bitech
+                pred = model(*xb)
+            loss = loss_fn(pred.float(), yb)    # 1 dopředný průchod a loss (loss ve float32)
             optimizer.zero_grad()               # 2 vynulování starých gradientů
             loss.backward()                     # 3 gradienty lossu
             optimizer.step()                    # 4 aktualizace parametrů
