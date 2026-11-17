@@ -1,16 +1,15 @@
-"""Architektury neuronových sítí pro predikci úspěchu her na Steamu."""
+"""MLP: základní stavební blok, samostatně nad metadaty i jako hlava hybridního modelu."""
 import torch
 from torch import nn
 
 
-class MetadataMLP(nn.Module):
-    """MLP nad metadaty: vstupy -> skrytá vrstva -> ReLU -> jeden výstup (predikce y)."""
+class MLP(nn.Module):
+    """Vstupní vektor -> skrytá vrstva -> ReLU -> jeden výstup (predikce y)."""
 
     def __init__(self, n_inputs: int):
         """
         Args:
-            n_inputs: Počet vstupů (sloupců z make_features()).
-            hidden: Počet neuronů skryté vrstvy.
+            n_inputs: Délka vstupního vektoru.
         """
         super().__init__()
         self.net = nn.Sequential(

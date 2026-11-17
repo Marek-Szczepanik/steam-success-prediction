@@ -9,7 +9,7 @@ from sklearn.linear_model import LinearRegression
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 
-from models import MetadataMLP
+from models.mlp import MLP
 from prepare_data import PROCESSED_DIR, fit_features, make_features
 
 # Složka pro výsledky
@@ -119,7 +119,7 @@ if __name__ == "__main__":
         torch.manual_seed(seed)
         result = run_baselines(X_train, y_train, X_val, y_val, seed)
 
-        model = MetadataMLP(X_train.shape[1]).to(DEVICE)
+        model = MLP(X_train.shape[1]).to(DEVICE)
         loss_fn = nn.HuberLoss()
         optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
         result["MLP (metadata)"] = train_model(model, loss_fn, optimizer, train_loader, val_loader,
