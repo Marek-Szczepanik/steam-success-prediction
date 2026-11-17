@@ -1,0 +1,5 @@
+,MAE mean,MAE std,RMSE mean,RMSE std
+Průměr,1.783,0.0,2.13,0.0
+Lineární regrese,1.243,0.0,1.647,0.0
+Gradient boosting,1.189,0.002,1.538,0.001
+MLP (metadata),1.175,0.003,1.547,0.007
