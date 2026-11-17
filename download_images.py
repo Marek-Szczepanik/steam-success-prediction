@@ -24,7 +24,7 @@ N_THREADS = 16
 
 
 def image_jobs(df: pd.DataFrame) -> list[tuple[str, Path]]:
-    """Vytvoří seznam dvojic (URL, cílový soubor) – header a prvních MIN_SCREENSHOTS screenshotů každé hry."""
+    """Vytvoří seznam dvojic (URL, cílový soubor) - header a prvních MIN_SCREENSHOTS screenshotů každé hry."""
     jobs = []
     for app_id, header, screenshots in zip(df.index, df["header_image"], df["screenshots"]):
         folder = IMAGE_DIR / str(app_id)
