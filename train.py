@@ -3,6 +3,8 @@
 Spuštění:
     python train.py                 # baseline + MLP nad metadaty
     python train.py --model a       # model A: vlastní CNN + metadata
+    python train.py --model b       # model B: předtrénovaný encoder + metadata
+    python train.py --model all     # model A a potom model B
 """
 import argparse
 import time
@@ -19,6 +21,7 @@ from torch.utils.data import DataLoader, TensorDataset
 from models.hybrid import HybridModel
 from models.mlp import MLP
 from models.model_a import CNNEncoder
+from models.model_b import PretrainedEncoder
 from prepare_data import PROCESSED_DIR, fit_features, make_features
 from prepare_images import GameDataset
 
@@ -29,6 +32,12 @@ RUNS_DIR = Path("runs")
 # Seedy pro opakované běhy
 SEEDS = [123, 420, 666]
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+# Zobrazovaný název modelu a název jeho běhů ve složce RUNS_DIR
+MODEL_NAMES = {
+    "metadata": ("MLP (metadata)", "mlp_metadata"),
+    "a": ("Model A", "model_a"),
+    "b": ("Model B", "model_b"),
+}
 
 # Hyperparametry trénování neuronových sítí
 EPOCHS = 15
@@ -132,9 +141,49 @@ def train_model(model: nn.Module, loss_fn: nn.Module, optimizer: torch.optim.Opt
     return best
 
 
+def build_model(model_name: str, n_inputs: int) -> nn.Module:
+    """Vytvoří model podle názvu z MODEL_NAMES."""
+    if model_name == "metadata":
+        return MLP(n_inputs)
+    encoder = CNNEncoder() if model_name == "a" else PretrainedEncoder()
+    return HybridModel(encoder, encoder.out_dim, n_inputs)
+
+
+def run(model_name: str, X_train: pd.DataFrame, y_train: pd.Series, X_val: pd.DataFrame,
+        y_val: pd.Series, train_loader: DataLoader, val_loader: DataLoader) -> None:
+    """Natrénuje model pro všechny seedy a uloží průměr a směrodatnou odchylku metrik.
+
+    U modelu nad metadaty vyhodnotí navíc i baseline.
+    """
+    name, run_name = MODEL_NAMES[model_name]
+    print(name)
+    runs = []
+    for seed in SEEDS:
+        print(f"Seed {seed}")
+        torch.manual_seed(seed)
+        result = run_baselines(X_train, y_train, X_val, y_val, seed) if model_name == "metadata" else {}
+        model = build_model(model_name, X_train.shape[1]).to(DEVICE)
+
+        loss_fn = nn.HuberLoss()
+        optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
+        result[name] = train_model(model, loss_fn, optimizer, train_loader, val_loader,
+                                   y_val, RUNS_DIR / f"{run_name}_seed{seed}")
+        runs.append(pd.DataFrame(result).T)
+
+    # průměr a směrodatná odchylka přes seedy pro každý model
+    results = pd.concat(runs).groupby(level=0, sort=False).agg(["mean", "std"]).round(3)
+    results.columns = [f"{metric} {stat}" for metric, stat in results.columns]
+    print(f"Validační množina, {len(SEEDS)} seedy:")
+    print(results)
+
+    RESULTS_DIR.mkdir(exist_ok=True)
+    results_file = "metadata_models.csv" if model_name == "metadata" else f"{run_name}.csv"
+    results.to_csv(RESULTS_DIR / results_file)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", choices=["metadata", "a"], default="metadata")
+    parser.add_argument("--model", choices=["metadata", "a", "b", "all"], default="metadata")
     args = parser.parse_args()
 
     train = pd.read_pickle(PROCESSED_DIR / "train.pkl")
@@ -152,33 +201,7 @@ if __name__ == "__main__":
         val_loader = image_loader(X_val, y_val, "val", shuffle=False)
     print("Zařízení:", DEVICE, "| počet vstupů:", X_train.shape[1], "| model:", args.model)
 
-    runs = []
-    for seed in SEEDS:
-        print(f"Seed {seed}")
-        torch.manual_seed(seed)
-        if args.model == "metadata":
-            result = run_baselines(X_train, y_train, X_val, y_val, seed)
-            model = MLP(X_train.shape[1])
-            name, run_name = "MLP (metadata)", "mlp_metadata"
-        else:
-            result = {}
-            encoder = CNNEncoder()
-            model = HybridModel(encoder, encoder.out_dim, X_train.shape[1])
-            name, run_name = "Model A", "model_a"
-        model = model.to(DEVICE)
-
-        loss_fn = nn.HuberLoss()
-        optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
-        result[name] = train_model(model, loss_fn, optimizer, train_loader, val_loader,
-                                   y_val, RUNS_DIR / f"{run_name}_seed{seed}")
-        runs.append(pd.DataFrame(result).T)
-
-    # průměr a směrodatná odchylka přes seedy pro každý model
-    results = pd.concat(runs).groupby(level=0, sort=False).agg(["mean", "std"]).round(3)
-    results.columns = [f"{metric} {stat}" for metric, stat in results.columns]
-    print(f"Validační množina, {len(SEEDS)} seedy:")
-    print(results)
-
-    RESULTS_DIR.mkdir(exist_ok=True)
-    results_file = "metadata_models.csv" if args.model == "metadata" else "model_a.csv"
-    results.to_csv(RESULTS_DIR / results_file)
+    # "all" spustí model A a potom model B
+    model_names = ["a", "b"] if args.model == "all" else [args.model]
+    for model_name in model_names:
+        run(model_name, X_train, y_train, X_val, y_val, train_loader, val_loader)
