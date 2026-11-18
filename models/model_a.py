@@ -17,9 +17,15 @@ class CNNEncoder(nn.Module):
             nn.Conv2d(16, 32, 3, padding=1), nn.ReLU(),
             nn.Conv2d(32, 32, 3, padding=1), nn.ReLU(),
             nn.MaxPool2d(2),
-            # plně propojené vrstvy: 32 kanálů x 32 x 32 -> vektor příznaků
+            # blok 3: dvě konvoluce, pak zmenšení na polovinu (32 -> 16)
+            nn.Conv2d(32, 64, 3, padding=1), nn.ReLU(),
+            nn.Conv2d(64, 64, 3, padding=1), nn.ReLU(),
+            nn.MaxPool2d(2),
+            # global average pooling: průměr každé mapy příznaků -> 64 kanálů x 1 x 1
+            nn.AdaptiveAvgPool2d(1),
+            # plně propojené vrstvy: vektor 64 hodnot -> vektor příznaků
             nn.Flatten(),
-            nn.Linear(32 * 32 * 32, 128), nn.ReLU(),
+            nn.Linear(64, 128), nn.ReLU(),
             nn.Linear(128, 64), nn.ReLU(),
         )
         self.out_dim = 64
