@@ -37,6 +37,7 @@ IMAGE_BATCH_SIZE = 64      # modely s obrázky (4 obrázky na vzorek)
 NUM_WORKERS = 6            # procesy pro paralelní načítání obrázků
 LEARNING_RATE = 1e-3
 WEIGHT_DECAY = 1e-4
+PATIENCE = 3               # early stopping: počet epoch bez zlepšení, po kterém se trénink zastaví
 
 
 def evaluate(y_true, y_pred) -> dict:
@@ -94,10 +95,12 @@ def train_model(model: nn.Module, loss_fn: nn.Module, optimizer: torch.optim.Opt
 
     Po každé epoše spočítá validační metriky.
     Model s nejnižší validační MAE uloží do run_dir/best.pt a průběh trénování do run_dir/history.csv.
+    Pokud se validační MAE nezlepší PATIENCE epoch po sobě, trénink skončí dřív (early stopping).
     """
     run_dir.mkdir(parents=True, exist_ok=True)
     history = []
     best = {"MAE": np.inf}
+    best_epoch = 0
 
     for epoch in range(1, EPOCHS + 1):          # epocha: jeden průchod trénovací množinou
         start = time.time()
@@ -119,7 +122,11 @@ def train_model(model: nn.Module, loss_fn: nn.Module, optimizer: torch.optim.Opt
         print(f"  epocha {epoch}: val MAE {metrics['MAE']:.3f}, {time.time() - start:.0f} s")
         if metrics["MAE"] < best["MAE"]:
             best = metrics
+            best_epoch = epoch
             torch.save(model.state_dict(), run_dir / "best.pt")
+        elif epoch - best_epoch >= PATIENCE:    # early stopping: model se přestal zlepšovat
+            print(f"  early stopping, nejlepší epocha {best_epoch}")
+            break
 
     pd.DataFrame(history).to_csv(run_dir / "history.csv", index=False)
     return best
