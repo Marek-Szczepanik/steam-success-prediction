@@ -21,8 +21,9 @@ from models.hybrid import HybridModel
 from models.mlp import MLP
 from models.model_a import CNNEncoder
 from models.model_b import PretrainedEncoder
-from prepare_data import PROCESSED_DIR, fit_features, make_features
-from prepare_images import GameDataset
+from preprocessing.game_dataset import GameDataset
+from preprocessing.prepare_data import PROCESSED_DIR, fit_features, make_features
+from utils.progress import Progress, format_time
 
 # Soubor s hyperparametry a prostorem pro random search
 CONFIG_FILE = Path("config.json")
@@ -133,8 +134,11 @@ def train_model(model: nn.Module, loss_fn: nn.Module, optimizer: torch.optim.Opt
                         "time_s": round(epoch_time, 1)})
         # průběžné uložení, aby průběh zůstal zachovaný i při přerušení
         pd.DataFrame(history).to_csv(run_dir / "history.csv", index=False)
-        print(f"  epocha {epoch}/{epochs}: val MAE {metrics['MAE']:.3f}, {epoch_time:.0f} s")
-        if metrics["MAE"] < best["MAE"]:
+        improved = metrics["MAE"] < best["MAE"]
+        print(f"  epocha {epoch}/{epochs}: train loss {total_loss / n_games:.3f}, "
+              f"val MAE {metrics['MAE']:.3f}, val RMSE {metrics['RMSE']:.3f}, "
+              f"{format_time(epoch_time)}{'  (nejlepší)' if improved else ''}")
+        if improved:
             best = {**metrics, "best_epoch": epoch}
             torch.save(model.state_dict(), run_dir / "best.pt")
         elif epoch - best["best_epoch"] >= patience:    # early stopping: model se přestal zlepšovat
@@ -153,10 +157,10 @@ def build_model(model_name: str, n_inputs: int, hidden_size: int) -> nn.Module:
 
 
 def train_run(model_name: str, hp: dict, config: dict, data: dict, seed: int, run_dir: Path,
-              label: str) -> dict:
+              progress: Progress, label: str) -> dict:
     """Natrénuje jeden model s danými hyperparametry a seedem.
 
-    label je popis běhu, který se vypíše do konzole.
+    Průběh vypisuje do konzole přes progress, label je popis běhu v záhlaví.
 
     Do run_dir uloží použitou konfiguraci (config.json), průběh trénování (history.csv),
     nejlepší model (best.pt) a výsledek běhu (result.json).
@@ -169,10 +173,11 @@ def train_run(model_name: str, hp: dict, config: dict, data: dict, seed: int, ru
     run_config = {"model": model_name, "seed": seed, "epochs": config["epochs"],
                   "patience": config["patience"], **hp}
     config_file, result_file = run_dir / "config.json", run_dir / "result.json"
-    print(f"\n{label}, seed {seed}: {hp}")
+    progress.start(label, seed, hp)
     if result_file.exists() and json.loads(config_file.read_text()) == run_config:
-        print("  přeskočeno, běh už je hotový")
-        return json.loads(result_file.read_text())
+        result = json.loads(result_file.read_text())
+        progress.finish(result, None)
+        return result
     run_dir.mkdir(parents=True, exist_ok=True)
     config_file.write_text(json.dumps(run_config, indent=2))
 
@@ -188,7 +193,7 @@ def train_run(model_name: str, hp: dict, config: dict, data: dict, seed: int, ru
     result["params_total"] = sum(p.numel() for p in model.parameters())
     result["params_trainable"] = sum(p.numel() for p in model.parameters() if p.requires_grad)
     result_file.write_text(json.dumps(result, indent=2, default=float))
-    print(f"  hotovo: val MAE {result['MAE']:.3f}, {result['train_time_s'] / 60:.0f} min")
+    progress.finish(result, result["train_time_s"])
     return result
 
 
@@ -206,7 +211,7 @@ def sample_hyperparams(space: dict, rng: np.random.Generator) -> dict:
     }
 
 
-def search(model_name: str, config: dict, data: dict) -> dict:
+def search(model_name: str, config: dict, data: dict, progress: Progress) -> dict:
     """Random search hyperparametrů: n_trials náhodných konfigurací, každá s jedním seedem.
 
     Výsledky všech konfigurací seřazené podle validační MAE uloží do results/search_<model>.csv.
@@ -223,7 +228,7 @@ def search(model_name: str, config: dict, data: dict) -> dict:
     for trial in range(1, space["n_trials"] + 1):
         hp = sample_hyperparams(space, rng)
         result = train_run(model_name, hp, config, data, space["seed"],
-                           RUNS_DIR / f"search_{run_name}_{trial:02d}",
+                           RUNS_DIR / f"search_{run_name}_{trial:02d}", progress,
                            f"{name}, search {trial}/{space['n_trials']}")
         trials.append({"trial": trial, **hp, **result})
         # průběžné uložení po každé konfiguraci
@@ -233,10 +238,10 @@ def search(model_name: str, config: dict, data: dict) -> dict:
     print(pd.read_csv(results_file).to_string(index=False))
     best = min(trials, key=lambda t: t["MAE"])
     print(f"Nejlepší: konfigurace {best['trial']}, val MAE {best['MAE']:.3f}")
-    return {key: best[key] for key in hp}
+    return {key: best[key] for key in ["learning_rate", "weight_decay", "batch_size", "hidden_size"]}
 
 
-def run(model_name: str, config: dict, data: dict, hp: dict | None = None) -> None:
+def run(model_name: str, config: dict, data: dict, progress: Progress, hp: dict | None = None) -> None:
     """Natrénuje model se zvolenými hyperparametry pro všechny seedy
     a uloží průměr a směrodatnou odchylku metrik.
 
@@ -249,7 +254,7 @@ def run(model_name: str, config: dict, data: dict, hp: dict | None = None) -> No
         result = run_baselines(data["X_train"], data["y_train"], data["X_val"], data["y_val"], seed) \
             if model_name == "metadata" else {}
         metrics = train_run(model_name, hp, config, data, seed, RUNS_DIR / f"{run_name}_seed{seed}",
-                            f"{name}, finální běh {i}/{len(config['seeds'])}")
+                            progress, f"{name}, finální běh {i}/{len(config['seeds'])}")
         result[name] = {"MAE": metrics["MAE"], "RMSE": metrics["RMSE"]}
         runs.append(pd.DataFrame(result).T)
 
@@ -283,9 +288,16 @@ if __name__ == "__main__":
 
     # "all" spustí model A a potom model B
     model_names = ["a", "b"] if args.model == "all" else [args.model]
+    n_search = config["search"]["n_trials"] if args.search else 0
+    n_seeds = len(config["seeds"])
+    progress = Progress(len(model_names) * (n_search + n_seeds))
+    print(f"Plán: modely {', '.join(MODEL_NAMES[m][0] for m in model_names)} | "
+          f"search {n_search} konfigurací + finál {n_seeds} seedy na model | celkem {progress.total} běhů")
+
     for model_name in model_names:
         if args.search:
             # nejlepší konfigurace ze searche se rovnou natrénuje se všemi seedy
-            run(model_name, config, data, search(model_name, config, data))
+            run(model_name, config, data, progress, search(model_name, config, data, progress))
         else:
-            run(model_name, config, data)
+            run(model_name, config, data, progress)
+    print(f"\n[{time.strftime('%H:%M')}] hotovo, všech {progress.total} běhů dokončeno")

@@ -11,7 +11,7 @@ from pathlib import Path
 import pandas as pd
 from PIL import Image
 
-from prepare_data import MIN_SCREENSHOTS, PROCESSED_DIR
+from .prepare_data import MIN_SCREENSHOTS, PROCESSED_DIR
 
 # Složka pro obrázky: data/images/<app_id>/header.jpg, ss0.jpg, ss1.jpg, ss2.jpg
 IMAGE_DIR = Path("data/images")

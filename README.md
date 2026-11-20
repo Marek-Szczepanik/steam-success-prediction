@@ -13,21 +13,21 @@ Popularita je vyjádřena jako `y = log(1 + počet pozitivních recenzí + poče
 
 ## Použití projektu
 - Všechny skripty se spouštějí z kořene repozitáře.
-- Hyperparametry trénování jsou definovány v souboru: **src/train.py**
+- Hyperparametry trénování a prostor pro random search jsou v souboru: **config.json**
 - Analýza dat a zdůvodnění předzpracování: **eda.ipynb**
 - Stažení metadat, čištění a rozdělení dat:
   ```bash
-  python src/prepare_data.py
+  python -m src.preprocessing.prepare_data
   ```
 
 - Stažení obrázků (stahování lze přerušit a znovu spustit):
   ```bash
-  python src/download_images.py
+  python -m src.preprocessing.download_images
   ```
 
 - Předzpracování obrázků na 128 x 128:
   ```bash
-  python src/prepare_images.py
+  python -m src.preprocessing.prepare_images
   ```
 
 - Spuštění trénování modelu:
