@@ -1,0 +1,39 @@
+\documentclass[11pt,a4paper,titlepage]{article}
+\usepackage[T1]{fontenc}
+\usepackage[czech]{babel}        % česká dělení slov, názvy (Obrázek, Tabulka, Obsah)
+\usepackage{lmodern}             % písmo s českými znaky
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath}             % rovnice
+\usepackage{amssymb}             % matematické symboly (např. \mathbb{R})
+\usepackage{graphicx}            % obrázky
+\usepackage{booktabs}            % tabulky
+\usepackage{tikz}                % schémata
+\usetikzlibrary{arrows.meta, fit}
+\usepackage{csquotes}            % uvozovky (vyžaduje biblatex)
+\usepackage[style=numeric]{biblatex} % citace [1], [2], ...
+\usepackage[hidelinks]{hyperref} % odkazy v PDF (bez rámečků)
+
+\graphicspath{{images/}}         % obrázky se hledají ve složce images
+\addbibresource{references.bib}  % soubor se zdroji
+
+\title{Úvod do deep learningu -- Predikce úspěchu her na Steamu}
+\author{Marek Szczepanik}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+\newpage
+
+\input{chapter/01_uvod}
+\input{chapter/02_data}
+\input{chapter/03_modely}
+\input{chapter/04_experimenty}
+\input{chapter/05_vysledky}
+\input{chapter/06_zaver}
+
+\printbibliography[title=Zdroje]
+
+\end{document}

@@ -133,7 +133,7 @@ def train_model(model: nn.Module, loss_fn: nn.Module, optimizer: torch.optim.Opt
                         "time_s": round(epoch_time, 1)})
         # průběžné uložení, aby průběh zůstal zachovaný i při přerušení
         pd.DataFrame(history).to_csv(run_dir / "history.csv", index=False)
-        print(f"  epocha {epoch}: val MAE {metrics['MAE']:.3f}, {epoch_time:.0f} s")
+        print(f"  epocha {epoch}/{epochs}: val MAE {metrics['MAE']:.3f}, {epoch_time:.0f} s")
         if metrics["MAE"] < best["MAE"]:
             best = {**metrics, "best_epoch": epoch}
             torch.save(model.state_dict(), run_dir / "best.pt")
@@ -152,8 +152,11 @@ def build_model(model_name: str, n_inputs: int, hidden_size: int) -> nn.Module:
     return HybridModel(encoder, encoder.out_dim, n_inputs, hidden_size)
 
 
-def train_run(model_name: str, hp: dict, config: dict, data: dict, seed: int, run_dir: Path) -> dict:
+def train_run(model_name: str, hp: dict, config: dict, data: dict, seed: int, run_dir: Path,
+              label: str) -> dict:
     """Natrénuje jeden model s danými hyperparametry a seedem.
+
+    label je popis běhu, který se vypíše do konzole.
 
     Do run_dir uloží použitou konfiguraci (config.json), průběh trénování (history.csv),
     nejlepší model (best.pt) a výsledek běhu (result.json).
@@ -166,8 +169,9 @@ def train_run(model_name: str, hp: dict, config: dict, data: dict, seed: int, ru
     run_config = {"model": model_name, "seed": seed, "epochs": config["epochs"],
                   "patience": config["patience"], **hp}
     config_file, result_file = run_dir / "config.json", run_dir / "result.json"
+    print(f"\n{label}, seed {seed}: {hp}")
     if result_file.exists() and json.loads(config_file.read_text()) == run_config:
-        print(f"  přeskočeno, běh už je hotový: {run_dir}")
+        print("  přeskočeno, běh už je hotový")
         return json.loads(result_file.read_text())
     run_dir.mkdir(parents=True, exist_ok=True)
     config_file.write_text(json.dumps(run_config, indent=2))
@@ -184,6 +188,7 @@ def train_run(model_name: str, hp: dict, config: dict, data: dict, seed: int, ru
     result["params_total"] = sum(p.numel() for p in model.parameters())
     result["params_trainable"] = sum(p.numel() for p in model.parameters() if p.requires_grad)
     result_file.write_text(json.dumps(result, indent=2, default=float))
+    print(f"  hotovo: val MAE {result['MAE']:.3f}, {result['train_time_s'] / 60:.0f} min")
     return result
 
 
@@ -217,15 +222,17 @@ def search(model_name: str, config: dict, data: dict) -> dict:
     trials = []
     for trial in range(1, space["n_trials"] + 1):
         hp = sample_hyperparams(space, rng)
-        print(f"{name}, konfigurace {trial}/{space['n_trials']}: {hp}")
         result = train_run(model_name, hp, config, data, space["seed"],
-                           RUNS_DIR / f"search_{run_name}_{trial:02d}")
+                           RUNS_DIR / f"search_{run_name}_{trial:02d}",
+                           f"{name}, search {trial}/{space['n_trials']}")
         trials.append({"trial": trial, **hp, **result})
         # průběžné uložení po každé konfiguraci
         pd.DataFrame(trials).sort_values("MAE").round(4).to_csv(results_file, index=False)
-    print(pd.read_csv(results_file))
 
+    print(f"\nVýsledky searche ({name}), seřazené podle val MAE:")
+    print(pd.read_csv(results_file).to_string(index=False))
     best = min(trials, key=lambda t: t["MAE"])
+    print(f"Nejlepší: konfigurace {best['trial']}, val MAE {best['MAE']:.3f}")
     return {key: best[key] for key in hp}
 
 
@@ -237,20 +244,19 @@ def run(model_name: str, config: dict, data: dict, hp: dict | None = None) -> No
     """
     name, run_name = MODEL_NAMES[model_name]
     hp = hp or config["models"][model_name]
-    print(name, hp)
     runs = []
-    for seed in config["seeds"]:
-        print(f"Seed {seed}")
+    for i, seed in enumerate(config["seeds"], start=1):
         result = run_baselines(data["X_train"], data["y_train"], data["X_val"], data["y_val"], seed) \
             if model_name == "metadata" else {}
-        metrics = train_run(model_name, hp, config, data, seed, RUNS_DIR / f"{run_name}_seed{seed}")
+        metrics = train_run(model_name, hp, config, data, seed, RUNS_DIR / f"{run_name}_seed{seed}",
+                            f"{name}, finální běh {i}/{len(config['seeds'])}")
         result[name] = {"MAE": metrics["MAE"], "RMSE": metrics["RMSE"]}
         runs.append(pd.DataFrame(result).T)
 
     # průměr a směrodatná odchylka přes seedy pro každý model
     results = pd.concat(runs).groupby(level=0, sort=False).agg(["mean", "std"]).round(3)
     results.columns = [f"{metric} {stat}" for metric, stat in results.columns]
-    print(f"Validační množina, {len(config['seeds'])} seedy:")
+    print(f"\n{name}, validační množina, {len(config['seeds'])} seedy:")
     print(results)
 
     RESULTS_DIR.mkdir(exist_ok=True)
