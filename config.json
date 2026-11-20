@@ -1,0 +1,18 @@
+{
+  "seeds": [123, 420, 666],
+  "epochs": 15,
+  "patience": 3,
+  "models": {
+    "metadata": {"learning_rate": 0.001, "weight_decay": 0.0001, "batch_size": 256, "hidden_size": 128},
+    "a": {"learning_rate": 0.001, "weight_decay": 0.0001, "batch_size": 64, "hidden_size": 128},
+    "b": {"learning_rate": 0.001, "weight_decay": 0.0001, "batch_size": 64, "hidden_size": 128}
+  },
+  "search": {
+    "seed": 123,
+    "n_trials": 8,
+    "learning_rate": [0.0001, 0.003],
+    "weight_decay": [0.00001, 0.01],
+    "batch_size": [32, 64, 128],
+    "hidden_size": [64, 128, 256]
+  }
+}

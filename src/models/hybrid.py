@@ -9,16 +9,17 @@ class HybridModel(nn.Module):
     """Encoder převede obrázky na vektory, ty se zprůměrují,
     spojí s metadaty a MLP z nich spočítá predikci y."""
 
-    def __init__(self, encoder: nn.Module, image_dim: int, n_meta_inputs: int):
+    def __init__(self, encoder: nn.Module, image_dim: int, n_meta_inputs: int, hidden_size: int = 128):
         """
         Args:
             encoder: Encoder obrázků.
             image_dim: Délka vektoru, který encoder vrací pro jeden obrázek.
             n_meta_inputs: Počet vstupů metadat.
+            hidden_size: Počet neuronů skryté vrstvy MLP.
         """
         super().__init__()
         self.encoder = encoder
-        self.mlp = MLP(image_dim + n_meta_inputs)
+        self.mlp = MLP(image_dim + n_meta_inputs, hidden_size)
 
     def forward(self, meta: torch.Tensor, images: torch.Tensor) -> torch.Tensor:
         """Vrátí predikci y [batch] pro metadata [batch, n_meta_inputs] a obrázky [batch, n_images, 3, H, W]."""
