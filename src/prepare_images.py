@@ -1,8 +1,7 @@
 """Dataset pro PyTorch: metadata, obrázky a cílová proměnná.
 
 Obrázky se jednou předzpracují (zmenšení na IMAGE_SIZE x IMAGE_SIZE) a uloží do jednoho
-pole uint8 pro každou množinu, takže se při trénování nemusí dekódovat ani zmenšovat:
-    python prepare_images.py
+pole uint8 pro každou množinu, takže se při trénování nemusí dekódovat ani zmenšovat.
 """
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
