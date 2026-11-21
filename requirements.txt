@@ -6,4 +6,5 @@ scikit-learn
 huggingface_hub
 pillow
 matplotlib
+tensorboard
 ipykernel

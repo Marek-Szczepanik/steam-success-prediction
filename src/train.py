@@ -16,6 +16,7 @@ from sklearn.ensemble import HistGradientBoostingRegressor
 from sklearn.linear_model import LinearRegression
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
+from torch.utils.tensorboard import SummaryWriter
 
 from models.hybrid import HybridModel
 from models.mlp import MLP
@@ -103,7 +104,8 @@ def train_model(model: nn.Module, loss_fn: nn.Module, optimizer: torch.optim.Opt
                 epochs: int, patience: int, run_dir: Path) -> dict:
     """Natrénuje model a vrátí metriky nejlepší epochy na validační množině.
 
-    Po každé epoše spočítá validační metriky a doplní průběh trénování do run_dir/history.csv.
+    Po každé epoše spočítá validační metriky a doplní průběh trénování do run_dir/history.csv
+    a do záznamu pro TensorBoard ve stejné složce.
     Model s nejnižší validační MAE uloží do run_dir/best.pt.
     Pokud se validační MAE nezlepší patience epoch po sobě, trénink skončí dřív (early stopping).
 
@@ -112,6 +114,10 @@ def train_model(model: nn.Module, loss_fn: nn.Module, optimizer: torch.optim.Opt
     """
     history = []
     best = {"MAE": np.inf, "best_epoch": 0}
+    # záznam pro TensorBoard, starý záznam z přerušeného běhu se smaže
+    for old_log in run_dir.glob("events.out.tfevents.*"):
+        old_log.unlink()
+    writer = SummaryWriter(run_dir)
 
     for epoch in range(1, epochs + 1):          # epocha: jeden průchod trénovací množinou
         start = time.time()
@@ -134,6 +140,10 @@ def train_model(model: nn.Module, loss_fn: nn.Module, optimizer: torch.optim.Opt
                         "time_s": round(epoch_time, 1)})
         # průběžné uložení, aby průběh zůstal zachovaný i při přerušení
         pd.DataFrame(history).to_csv(run_dir / "history.csv", index=False)
+        writer.add_scalar("train/loss", total_loss / n_games, epoch)
+        writer.add_scalar("val/MAE", metrics["MAE"], epoch)
+        writer.add_scalar("val/RMSE", metrics["RMSE"], epoch)
+        writer.flush()
         improved = metrics["MAE"] < best["MAE"]
         print(f"  epocha {epoch}/{epochs}: train loss {total_loss / n_games:.3f}, "
               f"val MAE {metrics['MAE']:.3f}, val RMSE {metrics['RMSE']:.3f}, "
@@ -145,6 +155,7 @@ def train_model(model: nn.Module, loss_fn: nn.Module, optimizer: torch.optim.Opt
             print(f"  early stopping, nejlepší epocha {best['best_epoch']}")
             break
 
+    writer.close()
     return best
 
 
@@ -231,8 +242,8 @@ def search(model_name: str, config: dict, data: dict, progress: Progress) -> dic
                            RUNS_DIR / f"search_{run_name}_{trial:02d}", progress,
                            f"{name}, search {trial}/{space['n_trials']}")
         trials.append({"trial": trial, **hp, **result})
-        # průběžné uložení po každé konfiguraci
-        pd.DataFrame(trials).sort_values("MAE").round(4).to_csv(results_file, index=False)
+        # průběžné uložení po každé konfiguraci; zaokrouhlují se jen metriky, ne hyperparametry
+        pd.DataFrame(trials).sort_values("MAE").round({"MAE": 4, "RMSE": 4}).to_csv(results_file, index=False)
 
     print(f"\nVýsledky searche ({name}), seřazené podle val MAE:")
     print(pd.read_csv(results_file).to_string(index=False))
