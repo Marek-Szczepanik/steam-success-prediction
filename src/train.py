@@ -15,13 +15,14 @@ import torch
 from sklearn.ensemble import HistGradientBoostingRegressor
 from sklearn.linear_model import LinearRegression
 from torch import nn
-from torch.utils.data import DataLoader, Subset, TensorDataset
+from torch.utils.data import DataLoader, TensorDataset
 from torch.utils.tensorboard import SummaryWriter
 
 from models.hybrid import HybridModel
 from models.mlp import MLP
 from models.model_a import CNNEncoder
 from models.model_b import PretrainedEncoder
+from models.model_clip import CLIPEncoder
 from preprocessing.game_dataset import GameDataset
 from preprocessing.prepare_data import PROCESSED_DIR, fit_features, make_features
 from utils.progress import Progress, format_time
@@ -38,6 +39,7 @@ MODEL_NAMES = {
     "metadata": ("MLP (metadata)", "mlp_metadata"),
     "a": ("Model A", "model_a"),
     "b": ("Model B", "model_b"),
+    "clip": ("Model B (CLIP)", "model_clip"),   # jen pro experiment s jiným encoderem
 }
 NUM_WORKERS = 6            # procesy pro paralelní načítání obrázků
 
@@ -65,43 +67,28 @@ def run_baselines(X_train: pd.DataFrame, y_train: pd.Series, X_val: pd.DataFrame
     return {name: evaluate(y_val, pred) for name, pred in predictions.items()}
 
 
-def to_loader(X: pd.DataFrame, y: pd.Series, batch_size: int, shuffle: bool,
-              indices: list | None = None) -> DataLoader:
-    """Převede vstupy a cílovou proměnnou na DataLoader.
-
-    indices jsou pozice vzorků, které se použijí (None = všechny).
-    """
+def to_loader(X: pd.DataFrame, y: pd.Series, batch_size: int, shuffle: bool) -> DataLoader:
+    """Převede vstupy a cílovou proměnnou na DataLoader."""
     dataset = TensorDataset(
         torch.tensor(X.to_numpy(), dtype=torch.float32),
         torch.tensor(y.to_numpy(), dtype=torch.float32),
     )
-    subset = dataset if indices is None else Subset(dataset, indices)
-    return DataLoader(subset, batch_size=batch_size, shuffle=shuffle)
+    return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
 
 
-def image_loader(X: pd.DataFrame, y: pd.Series, split: str, batch_size: int, shuffle: bool,
-                 indices: list | None = None) -> DataLoader:
-    """DataLoader s metadaty a obrázky: dávky (metadata, obrázky, y).
-
-    indices jsou pozice vzorků, které se použijí (None = všechny).
-    """
-    dataset = GameDataset(X, y, split)
-    subset = dataset if indices is None else Subset(dataset, indices)
-    return DataLoader(subset, batch_size=batch_size, shuffle=shuffle,
+def image_loader(X: pd.DataFrame, y: pd.Series, split: str, batch_size: int, shuffle: bool) -> DataLoader:
+    """DataLoader s metadaty a obrázky: dávky (metadata, obrázky, y)."""
+    return DataLoader(GameDataset(X, y, split), batch_size=batch_size, shuffle=shuffle,
                       num_workers=NUM_WORKERS, persistent_workers=True)
 
 
-def make_loaders(model_name: str, data: dict, batch_size: int,
-                 train_indices: list | None = None) -> tuple[DataLoader, DataLoader]:
-    """Vytvoří trénovací a validační DataLoader pro daný model.
-
-    train_indices jsou pozice trénovacích her, které se použijí (None = celá trénovací množina).
-    """
+def make_loaders(model_name: str, data: dict, batch_size: int) -> tuple[DataLoader, DataLoader]:
+    """Vytvoří trénovací a validační DataLoader pro daný model."""
     if model_name == "metadata":
-        return (to_loader(data["X_train"], data["y_train"], batch_size, True, train_indices),
-                to_loader(data["X_val"], data["y_val"], batch_size, False))
-    return (image_loader(data["X_train"], data["y_train"], "train", batch_size, True, train_indices),
-            image_loader(data["X_val"], data["y_val"], "val", batch_size, False))
+        return (to_loader(data["X_train"], data["y_train"], batch_size, shuffle=True),
+                to_loader(data["X_val"], data["y_val"], batch_size, shuffle=False))
+    return (image_loader(data["X_train"], data["y_train"], "train", batch_size, shuffle=True),
+            image_loader(data["X_val"], data["y_val"], "val", batch_size, shuffle=False))
 
 
 def predict(model: nn.Module, loader: DataLoader) -> np.ndarray:
@@ -178,18 +165,17 @@ def build_model(model_name: str, n_inputs: int, hidden_size: int) -> nn.Module:
     """Vytvoří model podle názvu z MODEL_NAMES."""
     if model_name == "metadata":
         return MLP(n_inputs, hidden_size)
-    encoder = CNNEncoder() if model_name == "a" else PretrainedEncoder()
+    encoders = {"a": CNNEncoder, "b": PretrainedEncoder, "clip": CLIPEncoder}
+    encoder = encoders[model_name]()
     return HybridModel(encoder, encoder.out_dim, n_inputs, hidden_size)
 
 
 def train_run(model_name: str, hp: dict, config: dict, data: dict, seed: int, run_dir: Path,
-              progress: Progress, label: str, variant: dict | None = None,
-              train_indices: list | None = None) -> dict:
+              progress: Progress, label: str, variant: dict | None = None) -> dict:
     """Natrénuje jeden model s danými hyperparametry a seedem.
 
     Průběh vypisuje do konzole přes progress, label je popis běhu v záhlaví.
-    variant popisuje variantu experimentu a uloží se do konfigurace běhu,
-    train_indices jsou pozice trénovacích her (None = celá trénovací množina).
+    variant popisuje variantu experimentu a uloží se do konfigurace běhu.
 
     Do run_dir uloží použitou konfiguraci (config.json), průběh trénování (history.csv),
     nejlepší model (best.pt) a výsledek běhu (result.json).
@@ -211,7 +197,7 @@ def train_run(model_name: str, hp: dict, config: dict, data: dict, seed: int, ru
     config_file.write_text(json.dumps(run_config, indent=2))
 
     torch.manual_seed(seed)
-    train_loader, val_loader = make_loaders(model_name, data, hp["batch_size"], train_indices)
+    train_loader, val_loader = make_loaders(model_name, data, hp["batch_size"])
     model = build_model(model_name, data["X_train"].shape[1], hp["hidden_size"]).to(DEVICE)
     optimizer = torch.optim.AdamW(model.parameters(), lr=hp["learning_rate"], weight_decay=hp["weight_decay"])
 

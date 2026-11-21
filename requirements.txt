@@ -7,4 +7,5 @@ huggingface_hub
 pillow
 matplotlib
 tensorboard
+open_clip_torch
 ipykernel

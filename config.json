@@ -7,10 +7,6 @@
     "a": {"learning_rate": 0.0010183954267799428, "weight_decay": 1.450317396695304e-05, "batch_size": 128, "hidden_size": 64},
     "b": {"learning_rate": 0.0008521147155603202, "weight_decay": 0.006056500753312142, "batch_size": 128, "hidden_size": 64}
   },
-  "experiments": {
-    "subset_seed": 0,
-    "train_fractions": [0.1, 0.25, 0.5]
-  },
   "search": {
     "seed": 123,
     "n_trials": 8,
