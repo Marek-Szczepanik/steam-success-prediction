@@ -68,10 +68,8 @@ Global average pooling zprůměruje každou ze 64 map příznaků na jedno čís
 tak popisuje, \emph{zda} se vzor v obrázku vyskytuje, ale ne \emph{kde}. Následují dvě plně
 propojené vrstvy (64 $\rightarrow$ 128 $\rightarrow$ 64) s aktivací ReLU, takže $d = 64$.
 
-Původní verze sítě měla místo global average poolingu přímé natažení map příznaků
-($32 \times 32 \times 32$ hodnot) do plně propojené vrstvy. Ta sama obsahovala přibližně
-4,2 milionu parametrů a síť se rychle přeučovala. Global average pooling snížil počet
-parametrů encoderu na 88\,656.
+Global average pooling nahradil v původní verzi sítě natažení map příznaků do plně propojené
+vrstvy s přibližně 4,2 milionu parametrů, se kterou se síť rychle přeučovala.
 
 \subsection*{Model B: předtrénovaný encoder}
 
@@ -117,6 +115,5 @@ Po každé epoše se spočítá MAE na validační množině a ukládá se model
 Trénování trvá nejvýše 15 epoch a končí dříve (early stopping), pokud se validační MAE
 nezlepší 3 epochy po sobě. Dopředný průchod probíhá ve smíšené přesnosti (bfloat16), ztráta
 se počítá ve float32. Formát bfloat16 má stejný rozsah exponentu jako float32, takže není
-potřeba škálovat gradienty. Obrázky jsou předem zmenšeny a uloženy jako pole \texttt{uint8},
-aby se při trénování nemusely znovu dekódovat. Každý model je natrénován se třemi seedy
+potřeba škálovat gradienty. Každý model je natrénován se třemi seedy
 (123, 420, 666), které určují inicializaci vah i pořadí trénovacích dat.

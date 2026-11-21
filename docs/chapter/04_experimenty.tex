@@ -57,7 +57,8 @@ Samotné obrázky budou méně informativní než metadata.
 modality. Varianta pouze s metadaty je samotná hlava $g_\phi$ bez encoderu, varianta pouze
 s obrázky používá encoder ConvNeXt-Tiny a do hlavy vstupuje jen vektor obrázků. Všechny varianty
 sdílejí stejné rozdělení dat, trénovací postup a hyperparametry nejlepší konfigurace modelu B.
-Každá varianta je natrénována se třemi seedy a vyhodnocena pomocí MAE a RMSE na validační množině.
+V obou experimentech je každá varianta natrénována se třemi seedy a vyhodnocena na validační
+množině.
 
 \begin{table}[h]
     \centering
@@ -96,7 +97,6 @@ zmrazený a jeho výstupem je vektor délky $d = 512$. Obrázky $128 \times 128$
 na $224 \times 224$, na kterých byl CLIP předtrénován, a normalizují se jeho průměrem
 a směrodatnou odchylkou. Hlava, trénovací postup a hyperparametry nejlepší konfigurace modelu B
 se nemění. Hyperparametry byly vybrány pro encoder ConvNeXt, což může CLIP mírně znevýhodnit.
-Model je natrénován se třemi seedy a vyhodnocen pomocí MAE a RMSE na validační množině.
 
 \textbf{Výsledek:} S encoderem CLIP dosahuje model MAE $1{,}065 \pm 0{,}004$ a RMSE
 $1{,}436 \pm 0{,}005$ (tabulka~\ref{tab:experimenty}), tedy o 0,079 nižší MAE než s encoderem

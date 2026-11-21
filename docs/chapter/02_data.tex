@@ -2,20 +2,17 @@
 
 \subsection*{Zdroj}
 
-Projekt vychází z datasetu Steam Games Dataset~\cite{fronkon_dataset}, který obsahuje metadata
-her získaná přes API Steamu. Použit je soubor \texttt{games.json} v pevné revizi, aby byla data
-reprodukovatelná. Soubor obsahuje 148\,909 záznamů a 42 sloupců. Kromě metadat obsahuje
-i odkazy na obrázky hry: header a seznam screenshotů.
+Projekt vychází z datasetu Steam Games Dataset~\cite{fronkon_dataset} s metadaty her ze Steamu
+a odkazy na jejich obrázky (header a screenshoty). Použit je soubor \texttt{games.json} v pevné
+revizi kvůli reprodukovatelnosti, který obsahuje 148\,909 záznamů a 42 sloupců.
 
 \subsection*{Čištění}
 
 Hry s nulovým počtem recenzí nelze použít, protože nulu nelze odlišit od chybějících dat:
-3\,467 her má nulový počet recenzí, ačkoli má nenulový počet doporučení
-(\texttt{recommendations}). Podíl takových chybějících hodnot navíc roste u novějších her.
-Medián poměru počtu recenzí a počtu doporučení v letech 2011--2023 pozvolna klesá z 1,43 na 1,06,
-od roku 2024 ale výrazně klesá (0,99 v roce 2024, 0,81 v roce 2025). Počty recenzí novějších her
-jsou tedy podhodnocené, a proto se data omezují na hry vydané do roku 2023. Postup čištění
-a počty her po jednotlivých krocích shrnuje tabulka~\ref{tab:cisteni}.
+3\,467 her má nulový počet recenzí, ačkoli má nenulový počet doporučení. Medián poměru počtu
+recenzí a doporučení v letech 2011--2023 pozvolna klesá z 1,43 na 1,06, od roku 2024 ale
+výrazně (0,81 v roce 2025). Počty recenzí novějších her jsou tedy podhodnocené, a proto se data
+omezují na hry vydané do roku 2023 (tabulka~\ref{tab:cisteni}).
 
 \begin{table}[h]
     \centering
@@ -35,16 +32,14 @@ a počty her po jednotlivých krocích shrnuje tabulka~\ref{tab:cisteni}.
     \label{tab:cisteni}
 \end{table}
 
-U stejné hry vedené pod více identifikátory zůstává záznam s nejvíce recenzemi. Seznam
-podporovaných jazyků obsahoval chybně zapsané položky (zbytky HTML a BBCode, více jazyků
-v jedné položce), názvy jazyků se z nich proto extrahují regulárním výrazem.
+U duplicitních her zůstává záznam s nejvíce recenzemi. Názvy jazyků se z chybně zapsaných
+položek (zbytky HTML a BBCode) extrahují regulárním výrazem.
 
 \subsection*{Rozdělení dat}
 
-Data jsou rozdělena časově podle roku vydání (tabulka~\ref{tab:rozdeleni}). Model se tak
-vyhodnocuje na hrách vydaných později než trénovací data, což odpovídá praktickému použití
-(predikce pro nově vydávané hry). Jednotkou rozdělení je hra, každá hra je tedy právě v jedné
-množině.
+Data jsou rozdělena časově podle roku vydání (tabulka~\ref{tab:rozdeleni}), takže se model
+vyhodnocuje na hrách vydaných později než trénovací data, stejně jako při praktickém použití.
+Jednotkou rozdělení je hra.
 
 \begin{table}[h]
     \centering
@@ -72,30 +67,24 @@ Metadata jsou zakódována do 77 vstupů:
     \item multi-hot 29 jazyků podporovaných alespoň 1\,\% her v trénovací množině.
 \end{itemize}
 
-Obrazovým vstupem je header a první tři screenshoty každé hry. Obrázky jsou zmenšeny,
-oříznuty na střed na čtverec $128 \times 128$ pixelů a jejich hodnoty škálovány do intervalu
-$[0, 1]$.
+Obrazovým vstupem je header a první tři screenshoty každé hry, zmenšené a oříznuté na střed
+na $128 \times 128$ pixelů s hodnotami v intervalu $[0, 1]$.
 
 \subsection*{Prevence úniku informací}
 
 Vstupy obsahují pouze informace známé v době vydání hry. Vyřazeny jsou počty doporučení,
-vlastníků, souběžných hráčů, herní doba, uživatelské tagy a počet DLC, které vznikají až po
-vydání a souvisí s popularitou. Z kategorií jsou použity jen ty, které popisují design hry.
-Kategorie přidávané až později (např. Steam Trading Cards nebo Remote Play) by popularitu
-prozrazovaly. Ze stejného důvodu je vyřazen žánr Early Access, který odpovídá stavu hry
-v době stažení dat. Parametry kódování (seznamy žánrů a jazyků, průměry a směrodatné
-odchylky) se počítají pouze z trénovací množiny.
+vlastníků a souběžných hráčů, herní doba, uživatelské tagy a počet DLC, které vznikají až po
+vydání. Z kategorií jsou použity jen ty popisující design hry, protože kategorie přidávané
+později (např. Steam Trading Cards) by popularitu prozrazovaly. Ze stejného důvodu je vyřazen
+žánr Early Access. Parametry kódování se počítají pouze z trénovací množiny.
 
 \subsection*{Omezení dat}
 
 \begin{itemize}
     \item Počet recenzí je jen nepřímou mírou popularity. Starší hry měly na sběr recenzí
-    více času, průměrné $y$ proto s rokem vydání klesá (v trénovací množině z 7,35 v roce 2013
-    na 3,39 v roce 2021).
-    \item Vyřazením her bez recenzí se model učí jen na hrách s alespoň jednou recenzí
-    a pro hry bez recenzí jeho predikce neplatí.
+    více času, průměrné $y$ proto s rokem vydání klesá (z 7,35 v roce 2013 na 3,39 v roce 2021).
+    \item Pro hry bez recenzí predikce neplatí.
     \item Rok vydání validačních a testovacích her leží mimo rozsah trénovací množiny
     (po standardizaci průměrně 1,51 a 1,90 směrodatné odchylky), model tedy musí extrapolovat.
-    \item Obrázky odpovídají stavu stránky hry v době stažení. Vývojáři je mohli po vydání
-    změnit, takže nemusí přesně odpovídat prezentaci v době vydání.
+    \item Obrázky odpovídají stavu stránky v době stažení, ne v době vydání.
 \end{itemize}
