@@ -21,7 +21,8 @@ class CLIPEncoder(nn.Module):
     def __init__(self):
         """Načte předtrénovaný model CLIP a ponechá z něj jen obrazový encoder."""
         super().__init__()
-        clip: nn.Module = open_clip.create_model("ViT-B-32", pretrained="openai")
+        # váhy OpenAI byly natrénovány s aktivací QuickGELU, model musí používat stejnou
+        clip: nn.Module = open_clip.create_model("ViT-B-32", pretrained="openai", force_quick_gelu=True)
         self.net: nn.Module = clip.get_submodule("visual")
         # zmrazení: váhy encoderu se během trénování nemění
         for param in self.net.parameters():

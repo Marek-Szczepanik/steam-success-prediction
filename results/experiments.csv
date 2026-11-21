@@ -1,0 +1,6 @@
+experiment,variant,MAE mean,MAE std,RMSE mean,RMSE std,best_epoch mean,best_epoch std,train_time_s mean,train_time_s std
+modality,all_inputs,1.144,0.006,1.539,0.008,6.0,1.0,2926.067,427.052
+encoder,convnext,1.144,0.006,1.539,0.008,6.0,1.0,2926.067,427.052
+modality,metadata_only,1.175,0.003,1.568,0.01,8.667,2.517,11.667,3.109
+modality,images_only,1.395,0.015,1.789,0.008,5.0,1.0,2752.933,353.197
+encoder,clip,1.065,0.004,1.436,0.005,10.667,1.528,1778.467,253.215

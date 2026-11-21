@@ -56,8 +56,32 @@ Samotné obrázky budou méně informativní než metadata.
 \textbf{Postup:} Porovnávají se tři varianty modelu B: pouze metadata, pouze obrázky a obě
 modality. Varianta pouze s metadaty je samotná hlava $g_\phi$ bez encoderu, varianta pouze
 s obrázky používá encoder ConvNeXt-Tiny a do hlavy vstupuje jen vektor obrázků. Všechny varianty
-sdílejí stejné rozdělení dat, trénovací postup a hyperparametry nejlepší konfigurace modelu B. Každá varianta je natrénována se třemi seedy a vyhodnocena
-pomocí MAE a RMSE na validační množině.
+sdílejí stejné rozdělení dat, trénovací postup a hyperparametry nejlepší konfigurace modelu B.
+Každá varianta je natrénována se třemi seedy a vyhodnocena pomocí MAE a RMSE na validační množině.
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{llcc}
+        \toprule
+        Experiment & Varianta & MAE & RMSE \\
+        \midrule
+        1 & pouze metadata & $1{,}175 \pm 0{,}003$ & $1{,}568 \pm 0{,}010$ \\
+        1 & pouze obrázky & $1{,}395 \pm 0{,}015$ & $1{,}789 \pm 0{,}008$ \\
+        1, 2 & obě modality, ConvNeXt-Tiny (model B) & $1{,}144 \pm 0{,}006$ & $1{,}539 \pm 0{,}008$ \\
+        2 & obě modality, CLIP ViT-B/32 & $\mathbf{1{,}065} \pm 0{,}004$ & $\mathbf{1{,}436} \pm 0{,}005$ \\
+        \bottomrule
+    \end{tabular}
+    \caption{Výsledky experimentů na validační množině: průměr $\pm$ směrodatná odchylka přes tři
+    seedy. Všechny varianty používají hyperparametry nejlepší konfigurace modelu B.}
+    \label{tab:experimenty}
+\end{table}
+
+\textbf{Výsledek:} Samotné obrázky dosahují MAE $1{,}395 \pm 0{,}015$ (tabulka~\ref{tab:experimenty}),
+tedy výrazně vyšší chyby než samotná metadata ($1{,}175 \pm 0{,}003$), ale stále mnohem nižší
+než predikce průměrem (1,783). Kombinace obou modalit snižuje MAE oproti samotným metadatům
+o 0,031 na $1{,}144 \pm 0{,}006$, což je přibližně pětinásobek směrodatné odchylky mezi seedy.
+Hypotéza se potvrdila: obrázky jsou samy o sobě slabším zdrojem informace než metadata,
+nesou ale informaci, která v metadatech není.
 
 \subsection*{Experiment 2: encoder CLIP}
 
@@ -73,3 +97,11 @@ na $224 \times 224$, na kterých byl CLIP předtrénován, a normalizují se jeh
 a směrodatnou odchylkou. Hlava, trénovací postup a hyperparametry nejlepší konfigurace modelu B
 se nemění. Hyperparametry byly vybrány pro encoder ConvNeXt, což může CLIP mírně znevýhodnit.
 Model je natrénován se třemi seedy a vyhodnocen pomocí MAE a RMSE na validační množině.
+
+\textbf{Výsledek:} S encoderem CLIP dosahuje model MAE $1{,}065 \pm 0{,}004$ a RMSE
+$1{,}436 \pm 0{,}005$ (tabulka~\ref{tab:experimenty}), tedy o 0,079 nižší MAE než s encoderem
+ConvNeXt-Tiny. Rozdíl je více než desetinásobkem směrodatné odchylky mezi seedy a hypotéza
+se potvrdila. Na logaritmické škále odpovídá rozdíl přibližně 8\,\% v odhadu počtu recenzí
+($e^{0{,}079} \approx 1{,}08$). Trénování s encoderem CLIP bylo navíc rychlejší: medián epochy
+115--136\,s oproti 299--346\,s a celkem 30 oproti 49 minutám, přestože CLIP zpracovává obrázky
+$224 \times 224$. Encoder CLIP má 87,9 milionu parametrů, trénovaná hlava 37\,825.
