@@ -4,8 +4,8 @@
   "patience": 3,
   "models": {
     "metadata": {"learning_rate": 0.001, "weight_decay": 0.0001, "batch_size": 256, "hidden_size": 128},
-    "a": {"learning_rate": 0.001, "weight_decay": 0.0001, "batch_size": 64, "hidden_size": 128},
-    "b": {"learning_rate": 0.001, "weight_decay": 0.0001, "batch_size": 64, "hidden_size": 128}
+    "a": {"learning_rate": 0.0010183954267799428, "weight_decay": 1.450317396695304e-05, "batch_size": 128, "hidden_size": 64},
+    "b": {"learning_rate": 0.0008521147155603202, "weight_decay": 0.006056500753312142, "batch_size": 128, "hidden_size": 64}
   },
   "search": {
     "seed": 123,
