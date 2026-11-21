@@ -1,0 +1,122 @@
+\section{Modely a trénování}
+
+\subsection*{Baseline}
+
+Jako referenční modely slouží čtyři přístupy pracující jen s metadaty. Nejjednodušší baseline
+předpovídá pro každou hru průměr $y$ z trénovací množiny. Dále je použita lineární regrese
+a gradient boosting (\texttt{HistGradientBoostingRegressor} s výchozím nastavením) z knihovny
+scikit-learn~\cite{pedregosa2011sklearn}. Poslední baseline je neuronová síť MLP se skrytou
+vrstvou o 128 neuronech a aktivací ReLU (10\,113 parametrů). Ta je zároveň referencí pro otázku,
+zda obrázky přinášejí informaci navíc.
+
+\subsection*{Hybridní architektura}
+
+Modely A a B sdílejí stejnou hybridní architekturu (obrázek~\ref{fig:architektura}) a liší se
+pouze encoderem obrázků. Encoder $e_\psi$ převede každý ze čtyř obrázků na vektor délky $d$.
+Vektory se zprůměrují, spojí s metadaty a MLP hlava $g_\phi$ z nich spočítá predikci:
+\begin{equation}
+    \hat{y}_i = g_\phi\left(\left[\frac{1}{4} \sum_{k=1}^{4} e_\psi(I_{i,k}) \,;\, \mathbf{m}_i\right]\right),
+\end{equation}
+kde $[\,\cdot\,;\,\cdot\,]$ značí spojení vektorů. Jeden encoder zpracovává všechny obrázky,
+takže se počet jeho parametrů s počtem obrázků nezvyšuje. Průměrování navíc nezávisí na pořadí
+obrázků. Hlava $g_\phi$ má stejnou strukturu jako baseline MLP: lineární vrstvu s $h$ výstupy,
+ReLU a lineární výstupní vrstvu s jedním neuronem. Šířka $h$ je hyperparametr (kapitola~4),
+ve finálních konfiguracích obou modelů je $h = 64$.
+
+\begin{figure}[h]
+    \centering
+    \begin{tikzpicture}[
+        box/.style={draw, rounded corners, align=center, minimum height=8mm, inner sep=3pt, font=\small},
+        arr/.style={-Stealth}
+    ]
+        % čtyři obrázky hry a sdílený encoder
+        \foreach \i/\name in {1/header, 2/screenshot 1, 3/screenshot 2, 4/screenshot 3} {
+            \node[box, minimum width=2.3cm] (img\i) at (0, {-(\i-1)*1.1}) {\name};
+            \node[box, fill=blue!10, minimum width=1.8cm] (enc\i) at (2.9, {-(\i-1)*1.1}) {$e_\psi$};
+            \draw[arr] (img\i) -- (enc\i);
+        }
+        \node[draw, dashed, rounded corners, inner sep=5pt, fit=(enc1)(enc4),
+              label={[font=\small]above:encoder (sdílené váhy)}] {};
+
+        % průměr vektorů obrázků a spojení s metadaty
+        \node[box] (mean) at (5.6, -1.65) {průměr\\$\mathbb{R}^{d}$};
+        \foreach \i in {1,...,4} \draw[arr] (enc\i.east) -- (mean.west);
+        \node[box] (meta) at (5.6, -4.0) {metadata\\$\mathbb{R}^{77}$};
+        \node[box] (cat) at (8.0, -2.8) {spojení\\$\mathbb{R}^{d+77}$};
+        \draw[arr] (mean) -- (cat);
+        \draw[arr] (meta) -- (cat);
+
+        % MLP hlava a výstup
+        \node[box, fill=orange!15] (head) at (10.9, -2.8) {hlava $g_\phi$\\Linear($h$), ReLU\\Linear(1)};
+        \draw[arr] (cat) -- (head);
+        \node (out) at (13.0, -2.8) {$\hat{y}$};
+        \draw[arr] (head) -- (out);
+    \end{tikzpicture}
+    \caption{Hybridní architektura modelů A a B. Sdílený encoder převede každý obrázek na vektor
+    délky $d$ ($d = 64$ pro model A, $d = 768$ pro model B), vektory se zprůměrují a spojí s metadaty.}
+    \label{fig:architektura}
+\end{figure}
+
+\subsection*{Model A: vlastní CNN}
+
+Encoder modelu A je konvoluční síť trénovaná od náhodné inicializace. Skládá se ze tří bloků,
+každý obsahuje dvě konvoluce $3 \times 3$ s aktivací ReLU a max pooling $2 \times 2$, který
+zmenšuje prostorové rozlišení na polovinu. Počet kanálů se v blocích zdvojnásobuje
+(16, 32, 64), rozlišení klesá ze $128 \times 128$ na $16 \times 16$. První bloky zachycují
+jednoduché vzory (hrany, barvy, textury), další bloky z nich skládají složitější struktury.
+Global average pooling zprůměruje každou ze 64 map příznaků na jedno číslo. Výsledný vektor
+tak popisuje, \emph{zda} se vzor v obrázku vyskytuje, ale ne \emph{kde}. Následují dvě plně
+propojené vrstvy (64 $\rightarrow$ 128 $\rightarrow$ 64) s aktivací ReLU, takže $d = 64$.
+
+Původní verze sítě měla místo global average poolingu přímé natažení map příznaků
+($32 \times 32 \times 32$ hodnot) do plně propojené vrstvy. Ta sama obsahovala přibližně
+4,2 milionu parametrů a síť se rychle přeučovala. Global average pooling snížil počet
+parametrů encoderu na 88\,656.
+
+\subsection*{Model B: předtrénovaný encoder}
+
+Model B používá jako encoder síť ConvNeXt-Tiny~\cite{liu2022convnext} předtrénovanou
+na datasetu ImageNet~\cite{deng2009imagenet} z knihovny torchvision. Klasifikační vrstva
+pro 1000 tříd je odstraněna, výstupem je vektor délky $d = 768$. Váhy encoderu jsou zmrazené,
+trénuje se pouze hlava $g_\phi$ (linear probing s MLP hlavou). Obrázky jsou před vstupem
+normalizovány průměrem a směrodatnou odchylkou ImageNetu, se kterými byla síť předtrénována.
+Encoder zůstává i během trénování v režimu inference, aby se nepoužíval stochastic depth,
+který v trénovacím režimu náhodně vynechává bloky sítě. Síť byla předtrénována na obrázcích
+$224 \times 224$, zde dostává obrázky $128 \times 128$.
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{lrrr}
+        \toprule
+        Model & Encoder & Hlava & Trénované \\
+        \midrule
+        MLP (metadata) & -- & 10\,113 & 10\,113 \\
+        Model A & 88\,656 & 9\,153 & 97\,809 \\
+        Model B & 27\,820\,128 & 54\,209 & 54\,209 \\
+        \bottomrule
+    \end{tabular}
+    \caption{Počty parametrů modelů ve finálních konfiguracích (hlava modelů A a B s $h = 64$).}
+    \label{tab:parametry}
+\end{table}
+
+\subsection*{Trénování}
+
+Všechny neuronové sítě jsou implementovány v PyTorch~\cite{paszke2019pytorch} a trénovány
+stejným postupem. Minimalizuje se Huberova ztráta (kapitola~1) optimizerem
+AdamW~\cite{loshchilov2019adamw}, který aktualizuje parametry podle
+\begin{equation}
+    \theta_t = \theta_{t-1} - \eta \left( \frac{\hat{m}_t}{\sqrt{\hat{v}_t} + \epsilon} + \lambda \theta_{t-1} \right),
+\end{equation}
+kde $\hat{m}_t$ a $\hat{v}_t$ jsou korigované klouzavé průměry gradientu a jeho druhé mocniny,
+$\eta$ je learning rate a $\lambda$ weight decay. Na rozdíl od L2 regularizace v původním
+Adamu se weight decay neškáluje adaptivním krokem. MLP nad metadaty používá $\eta = 10^{-3}$,
+$\lambda = 10^{-4}$ a velikost dávky 256. Hyperparametry modelů A a B jsou vybrány random
+searchem (kapitola~4).
+
+Po každé epoše se spočítá MAE na validační množině a ukládá se model z nejlepší epochy.
+Trénování trvá nejvýše 15 epoch a končí dříve (early stopping), pokud se validační MAE
+nezlepší 3 epochy po sobě. Dopředný průchod probíhá ve smíšené přesnosti (bfloat16), ztráta
+se počítá ve float32. Formát bfloat16 má stejný rozsah exponentu jako float32, takže není
+potřeba škálovat gradienty. Obrázky jsou předem zmenšeny a uloženy jako pole \texttt{uint8},
+aby se při trénování nemusely znovu dekódovat. Každý model je natrénován se třemi seedy
+(123, 420, 666), které určují inicializaci vah i pořadí trénovacích dat.

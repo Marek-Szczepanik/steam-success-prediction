@@ -1,0 +1,36 @@
+\section{Formulace úlohy}
+
+Cílem projektu je odhadnout popularitu hry na Steamu z informací dostupných už v době jejího
+vydání: z metadat a z obrázků, kterými se hra prezentuje na své stránce (header a tři screenshoty).
+Hlavní otázkou je, zda obrázky nesou informaci o popularitě navíc oproti samotným metadatům.
+
+Steam nezveřejňuje počty prodaných kopií, proto jsem jako míru popularity zvolil celkový počet
+recenzí. Jeho rozdělení je extrémně zešikmené (většina her má jednotky recenzí, několik her
+miliony), a proto predikuji jeho logaritmus:
+\begin{equation}
+    y_i = \log\left(1 + r_i^{+} + r_i^{-}\right),
+\end{equation}
+kde $r_i^{+}$ a $r_i^{-}$ jsou počty pozitivních a negativních recenzí hry $i$. Chyba na této
+škále vyjadřuje relativní rozdíl, takže malá i velká hra mají při trénování srovnatelnou váhu.
+
+Úloha je regrese. Model s parametry $\theta$ předpovídá
+$\hat{y}_i = f_\theta(\mathbf{m}_i, \mathbf{I}_i) \in \mathbb{R}$, kde $\mathbf{m}_i \in \mathbb{R}^{77}$
+jsou metadata a $\mathbf{I}_i$ čtyři obrázky o rozměru $3 \times 128 \times 128$. Výstupem je
+jedno reálné číslo bez výstupní aktivace. Parametry učím minimalizací průměrné ztráty
+na trénovací množině o $n$ hrách:
+\begin{equation}
+    \min_\theta \; L(\theta) = \frac{1}{n} \sum_{i=1}^{n} \ell_\delta\left(\hat{y}_i, y_i\right), \qquad
+    \ell_\delta(\hat{y}, y) =
+    \begin{cases}
+        \frac{1}{2}(\hat{y} - y)^2 & \text{pro } |\hat{y} - y| \le \delta, \\
+        \delta \left(|\hat{y} - y| - \frac{1}{2}\delta\right) & \text{jinak,}
+    \end{cases}
+\end{equation}
+kde $\ell_\delta$ je Huberova ztráta~\cite{huber1964} s $\delta = 1$. Zvolil jsem ji, protože se
+u malých chyb chová jako kvadratická ztráta, ale velké chyby penalizuje jen lineárně. Hry
+s nečekaně vysokou popularitou, kterou ze vstupů nelze předpovědět, tak neovládnou trénování.
+
+Modely vyhodnocuji pomocí MAE a RMSE na logaritmické škále. MAE je hlavní metrikou, protože
+se dobře interpretuje: chyba 1 znamená odhad počtu recenzí, který se od skutečnosti liší
+přibližně $e \approx 2{,}7$krát. RMSE silněji penalizuje velké chyby, a ukazuje tak, jak si model
+vede u extrémních případů. Model i nejlepší epochu vybírám jen podle validační množiny.

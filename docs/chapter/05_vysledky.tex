@@ -1,0 +1,39 @@
+\section{Výsledky a diskuse}
+
+\subsection*{Srovnání modelů}
+
+% TODO: doplnit výsledky na testovací množině, počty parametrů, časy trénování a inference
+\begin{table}[h]
+    \centering
+    \begin{tabular}{lcc}
+        \toprule
+        Model & MAE & RMSE \\
+        \midrule
+        Průměr & 1,783 & 2,130 \\
+        Lineární regrese & 1,243 & 1,647 \\
+        Gradient boosting & $1{,}189 \pm 0{,}002$ & $1{,}538 \pm 0{,}001$ \\
+        MLP (metadata) & $1{,}175 \pm 0{,}003$ & $1{,}547 \pm 0{,}007$ \\
+        Model A & $1{,}155 \pm 0{,}004$ & $1{,}532 \pm 0{,}009$ \\
+        Model B & $\mathbf{1{,}144 \pm 0{,}006}$ & $1{,}539 \pm 0{,}008$ \\
+        \bottomrule
+    \end{tabular}
+    \caption{Výsledky na validační množině: průměr $\pm$ směrodatná odchylka přes tři seedy.
+    Průměr a lineární regrese jsou deterministické.}
+    \label{tab:vysledky}
+\end{table}
+
+Oba modely s obrázky dosahují nižší MAE než všechny baseline nad metadaty
+(tabulka~\ref{tab:vysledky}). Nejnižší MAE má model B ($1{,}144 \pm 0{,}006$), následuje
+model A ($1{,}155 \pm 0{,}004$) a MLP nad metadaty ($1{,}175 \pm 0{,}003$). Rozdíl mezi
+modely B a A (0,011) odpovídá přibližně dvojnásobku směrodatné odchylky mezi seedy. Při třech
+bězích jde o orientační výsledek, ne o prokázaný rozdíl. V RMSE jsou rozdíly mezi gradient
+boostingem, MLP a modely A a B malé (1,532--1,547). RMSE více váží velké chyby, gradient
+boosting minimalizuje kvadratickou chybu, zatímco Huberova ztráta velké chyby penalizuje
+jen lineárně.
+
+Výsledky nejlepších konfigurací ze searche se od výchozího nastavení ($\eta = 10^{-3}$,
+$\lambda = 10^{-4}$, dávka 64, $h = 128$; model A $1{,}154 \pm 0{,}007$, model B
+$1{,}140 \pm 0{,}006$) liší méně než směrodatná odchylka mezi seedy. Výběr nejlepší z osmi
+konfigurací podle jednoho seedu je navíc optimistický: konfigurace~6 dosáhla u modelu B
+v searchi MAE 1,139, průměr přes tři seedy je 1,144. Model A dosáhl nejnižší validační MAE
+v poslední, 15. epoše u všech tří seedů, limit počtu epoch ho tedy mohl omezit.

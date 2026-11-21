@@ -1,0 +1,72 @@
+\section{Experimenty}
+
+\subsection*{Hledání hyperparametrů}
+
+Hyperparametry jsou hledány metodou random search~\cite{bergstra2012random}. Oproti mřížkovému
+hledání vyzkouší při stejném počtu běhů více různých hodnot každého hyperparametru, což je
+výhodné, pokud výsledek ovlivňuje jen několik z nich. Hledání probíhá zvlášť pro model A a model B,
+protože se optimální hodnoty (zejména learning rate) mezi encoderem trénovaným od nuly a malou
+hlavou nad zmrazeným encoderem mohou výrazně lišit.
+
+Prohledávaný prostor:
+\begin{itemize}
+    \item learning rate $\eta$: log-uniformně z intervalu $[10^{-4}, 3 \cdot 10^{-3}]$,
+    \item weight decay $\lambda$: log-uniformně z intervalu $[10^{-5}, 10^{-2}]$,
+    \item velikost dávky: $\{32, 64, 128\}$,
+    \item šířka skryté vrstvy hlavy: $\{64, 128, 256\}$.
+\end{itemize}
+Learning rate a weight decay se vzorkují na logaritmické škále, protože jejich vliv závisí
+na řádu hodnoty, ne na absolutním rozdílu. Každá konfigurace je natrénována s jedním seedem
+a vyhodnocena podle MAE na validační množině. Pro každý model je vyzkoušeno 8 konfigurací.
+Konfigurace se vzorkují se stejným seedem, takže oba modely dostávají stejné kombinace
+hyperparametrů. Nejlepší konfigurace každého modelu je poté natrénována znovu se třemi seedy.
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{crrrrrr}
+        \toprule
+        & $\eta$ & $\lambda$ & Dávka & $h$ & MAE A & MAE B \\
+        \midrule
+        1 & $1{,}02 \cdot 10^{-3}$ & $1{,}45 \cdot 10^{-5}$ & 128 & 64 & \textbf{1,1561} & 1,1407 \\
+        2 & $1{,}87 \cdot 10^{-4}$ & $3{,}37 \cdot 10^{-5}$ & 64 & 256 & 1,1714 & 1,1425 \\
+        3 & $2{,}31 \cdot 10^{-3}$ & $6{,}76 \cdot 10^{-5}$ & 128 & 256 & 1,1805 & 1,1538 \\
+        4 & $2{,}06 \cdot 10^{-3}$ & $3{,}46 \cdot 10^{-4}$ & 32 & 64 & 1,1607 & 1,1450 \\
+        5 & $1{,}65 \cdot 10^{-3}$ & $4{,}38 \cdot 10^{-5}$ & 64 & 256 & 1,1742 & 1,1474 \\
+        6 & $8{,}52 \cdot 10^{-4}$ & $6{,}06 \cdot 10^{-3}$ & 128 & 64 & 1,1587 & \textbf{1,1393} \\
+        7 & $1{,}51 \cdot 10^{-3}$ & $3{,}59 \cdot 10^{-4}$ & 128 & 64 & 1,1614 & 1,1443 \\
+        8 & $1{,}76 \cdot 10^{-4}$ & $3{,}11 \cdot 10^{-4}$ & 32 & 128 & 1,1606 & 1,1521 \\
+        \bottomrule
+    \end{tabular}
+    \caption{Random search: validační MAE osmi konfigurací (seed 123). Tučně nejlepší
+    konfigurace každého modelu.}
+    \label{tab:search}
+\end{table}
+
+Výsledky searche jsou v tabulce~\ref{tab:search}. Nejlepší je pro model A konfigurace~1 a pro
+model B konfigurace~6, obě s velikostí dávky 128 a šířkou hlavy $h = 64$. Rozdíly mezi
+konfiguracemi jsou malé: validační MAE se pohybuje mezi 1,156 a 1,181 u modelu A a mezi 1,139
+a 1,154 u modelu B. U modelu A dosáhly nejvyšší chyby všechny tři konfigurace se šířkou hlavy 256.
+
+\subsection*{Experiment 1: přínos jednotlivých modalit}
+
+\textbf{Hypotéza:} Obrázky nesou informaci o popularitě, která v metadatech není. Model
+kombinující obrázky s metadaty proto dosáhne nižší chyby než model nad samotnými metadaty.
+Samotné obrázky budou méně informativní než metadata.
+
+\textbf{Postup:} Porovnávají se tři varianty: pouze metadata, pouze obrázky a obě modality.
+Varianta bez metadat používá stejný encoder a hlavu, do hlavy však vstupuje jen vektor
+obrázků. Všechny varianty sdílejí stejné rozdělení dat, trénovací postup a hyperparametry
+nejlepší konfigurace modelu B. Každá varianta je natrénována se třemi seedy a vyhodnocena
+pomocí MAE a RMSE na validační množině.
+
+\subsection*{Experiment 2: vliv velikosti trénovací množiny}
+
+\textbf{Hypotéza:} Předtrénovaný encoder modelu B obsahuje obecné vizuální příznaky, a proto
+potřebuje méně trénovacích dat než model A, který se musí naučit příznaky od začátku.
+S klesajícím počtem trénovacích her se rozdíl mezi modely A a B zvětšuje.
+
+\textbf{Postup:} Oba modely jsou natrénovány na náhodných podmnožinách trénovací množiny
+o velikosti 10\,\%, 25\,\%, 50\,\% a 100\,\%. Podmnožiny jsou pro oba modely stejné
+a validační množina se nemění. Ostatní nastavení odpovídá nejlepší konfiguraci každého modelu.
+Sleduje se MAE na validační množině v závislosti na počtu trénovacích her.
+% TODO: počet seedů pro model A podle výpočetního času

@@ -1,0 +1,101 @@
+\section{Data}
+
+\subsection*{Zdroj}
+
+Projekt vychází z datasetu Steam Games Dataset~\cite{fronkon_dataset}, který obsahuje metadata
+her získaná přes API Steamu. Použit je soubor \texttt{games.json} v pevné revizi, aby byla data
+reprodukovatelná. Soubor obsahuje 148\,909 záznamů a 42 sloupců. Kromě metadat obsahuje
+i odkazy na obrázky hry: header a seznam screenshotů.
+
+\subsection*{Čištění}
+
+Hry s nulovým počtem recenzí nelze použít, protože nulu nelze odlišit od chybějících dat:
+3\,467 her má nulový počet recenzí, ačkoli má nenulový počet doporučení
+(\texttt{recommendations}). Podíl takových chybějících hodnot navíc roste u novějších her.
+Medián poměru počtu recenzí a počtu doporučení v letech 2011--2023 pozvolna klesá z 1,43 na 1,06,
+od roku 2024 ale výrazně klesá (0,99 v roce 2024, 0,81 v roce 2025). Počty recenzí novějších her
+jsou tedy podhodnocené, a proto se data omezují na hry vydané do roku 2023. Postup čištění
+a počty her po jednotlivých krocích shrnuje tabulka~\ref{tab:cisteni}.
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{lr}
+        \toprule
+        Krok & Počet her \\
+        \midrule
+        Původní data & 148\,909 \\
+        Vydáno do roku 2023 & 77\,575 \\
+        Alespoň 1 recenze & 64\,675 \\
+        Alespoň 3 screenshoty a header & 64\,554 \\
+        Bez softwaru (pouze softwarové žánry) & 63\,889 \\
+        Bez duplicit (stejný název a vývojář) & 63\,804 \\
+        \bottomrule
+    \end{tabular}
+    \caption{Počet her po jednotlivých krocích čištění.}
+    \label{tab:cisteni}
+\end{table}
+
+U stejné hry vedené pod více identifikátory zůstává záznam s nejvíce recenzemi. Seznam
+podporovaných jazyků obsahoval chybně zapsané položky (zbytky HTML a BBCode, více jazyků
+v jedné položce), názvy jazyků se z nich proto extrahují regulárním výrazem.
+
+\subsection*{Rozdělení dat}
+
+Data jsou rozdělena časově podle roku vydání (tabulka~\ref{tab:rozdeleni}). Model se tak
+vyhodnocuje na hrách vydaných později než trénovací data, což odpovídá praktickému použití
+(predikce pro nově vydávané hry). Jednotkou rozdělení je hra, každá hra je tedy právě v jedné
+množině.
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{lcrr}
+        \toprule
+        Množina & Roky vydání & Počet her & Podíl \\
+        \midrule
+        Trénovací & do 2021 & 45\,565 & 71,4\,\% \\
+        Validační & 2022 & 8\,611 & 13,5\,\% \\
+        Testovací & 2023 & 9\,628 & 15,1\,\% \\
+        \bottomrule
+    \end{tabular}
+    \caption{Časové rozdělení dat.}
+    \label{tab:rozdeleni}
+\end{table}
+
+\subsection*{Vstupy modelu}
+
+Metadata jsou zakódována do 77 vstupů:
+\begin{itemize}
+    \item standardizovaný rok vydání, $\log(1 + \text{cena})$ a $\log(1 + \text{počet jazyků})$,
+    \item binární příznaky: hra zdarma, podpora Windows, macOS a Linuxu,
+    \item multi-hot 22 žánrů s alespoň 50 hrami v trénovací množině,
+    \item multi-hot 19 kategorií popisujících design hry (např. Single-player, Co-op, VR),
+    \item multi-hot 29 jazyků podporovaných alespoň 1\,\% her v trénovací množině.
+\end{itemize}
+
+Obrazovým vstupem je header a první tři screenshoty každé hry. Obrázky jsou zmenšeny,
+oříznuty na střed na čtverec $128 \times 128$ pixelů a jejich hodnoty škálovány do intervalu
+$[0, 1]$.
+
+\subsection*{Prevence úniku informací}
+
+Vstupy obsahují pouze informace známé v době vydání hry. Vyřazeny jsou počty doporučení,
+vlastníků, souběžných hráčů, herní doba, uživatelské tagy a počet DLC, které vznikají až po
+vydání a souvisí s popularitou. Z kategorií jsou použity jen ty, které popisují design hry.
+Kategorie přidávané až později (např. Steam Trading Cards nebo Remote Play) by popularitu
+prozrazovaly. Ze stejného důvodu je vyřazen žánr Early Access, který odpovídá stavu hry
+v době stažení dat. Parametry kódování (seznamy žánrů a jazyků, průměry a směrodatné
+odchylky) se počítají pouze z trénovací množiny.
+
+\subsection*{Omezení dat}
+
+\begin{itemize}
+    \item Počet recenzí je jen nepřímou mírou popularity. Starší hry měly na sběr recenzí
+    více času, průměrné $y$ proto s rokem vydání klesá (v trénovací množině z 7,35 v roce 2013
+    na 3,39 v roce 2021).
+    \item Vyřazením her bez recenzí se model učí jen na hrách s alespoň jednou recenzí
+    a pro hry bez recenzí jeho predikce neplatí.
+    \item Rok vydání validačních a testovacích her leží mimo rozsah trénovací množiny
+    (po standardizaci průměrně 1,51 a 1,90 směrodatné odchylky), model tedy musí extrapolovat.
+    \item Obrázky odpovídají stavu stránky hry v době stažení. Vývojáři je mohli po vydání
+    změnit, takže nemusí přesně odpovídat prezentaci v době vydání.
+\end{itemize}
