@@ -30,7 +30,15 @@ kde $\ell_\delta$ je Huberova ztráta~\cite{huber1964} s $\delta = 1$. Zvolil js
 u malých chyb chová jako kvadratická ztráta, ale velké chyby penalizuje jen lineárně. Hry
 s nečekaně vysokou popularitou, kterou ze vstupů nelze předpovědět, tak neovládnou trénování.
 
-Modely vyhodnocuji pomocí MAE a RMSE na logaritmické škále. MAE je hlavní metrikou, protože
+Modely vyhodnocuji pomocí MAE a RMSE na logaritmické škále:
+\begin{equation}
+    \mathrm{MAE} = \frac{1}{n} \sum_{i=1}^{n} \left| \hat{y}_i - y_i \right|, \qquad
+    \mathrm{RMSE} = \sqrt{\frac{1}{n} \sum_{i=1}^{n} \left( \hat{y}_i - y_i \right)^2}.
+\end{equation}
+MAE je hlavní metrikou, protože
 se dobře interpretuje: chyba 1 znamená odhad počtu recenzí, který se od skutečnosti liší
 přibližně $e \approx 2{,}7$krát. RMSE silněji penalizuje velké chyby, a ukazuje tak, jak si model
-vede u extrémních případů. Model i nejlepší epochu vybírám jen podle validační množiny.
+vede u extrémních případů. Předpokládám, že hry jsou navzájem nezávislé, ale ne že trénovací a testovací
+hry pocházejí ze stejného rozdělení: vstupy i popularita se v čase mění, a proto modely
+vyhodnocuji na hrách vydaných později (kapitola~2). Model i nejlepší epochu vybírám jen podle
+validační množiny.

@@ -26,9 +26,11 @@
 Oba modely s obrázky dosahují na validační i testovací množině nižší MAE než všechny baseline
 nad metadaty a pořadí podle MAE se mezi množinami nemění: model B, model A, MLP nad metadaty
 (tabulka~\ref{tab:vysledky}). Na testovací množině má model B o 0,047 nižší MAE než MLP nad
-metadaty, na validační o 0,035. Rozdíl mezi modely B a A (0,011 na validační a 0,017
+metadaty, na validační o 0,035 (přibližně 5 a 4\,\% v odhadu počtu recenzí). Rozdíl mezi modely B a A (0,011 na validační a 0,017
 na testovací množině) odpovídá přibližně jedno- až dvojnásobku směrodatné odchylky mezi seedy.
-Při třech bězích jde o orientační výsledek, ne o prokázaný rozdíl. V RMSE je z modelů A a B
+Při třech bězích jde o orientační výsledek, ne o prokázaný rozdíl.
+Směrodatná odchylka je výběrová ($n - 1$) přes tři běhy, které se liší inicializací vah
+a pořadím trénovacích dat, a vyjadřuje jen variabilitu mezi seedy. V RMSE je z modelů A a B
 na obou množinách lepší model A. Varianta s encoderem CLIP z experimentu~2 si výhodu udržela
 i na testovací množině (MAE o 0,075 nižší než model B) a je nejlepší ve všech metrikách.
 
@@ -38,11 +40,10 @@ na 1,284), který je na testovací množině horší i než lineární regrese. 
 že rozhodovací stromy nedokážou extrapolovat rok vydání mimo rozsah trénovací množiny, zatímco
 lineární model ano. Neuronové sítě se zhoršily o 0,039 (model B) až 0,051 (MLP nad metadaty).
 
-Výsledky nejlepších konfigurací ze searche se od výchozího nastavení ($\eta = 10^{-3}$,
-$\lambda = 10^{-4}$, dávka 64, $h = 128$; validační MAE modelu A $1{,}154 \pm 0{,}007$, modelu B
-$1{,}140 \pm 0{,}006$) liší méně než směrodatná odchylka mezi seedy. Výběr nejlepší z osmi
-konfigurací podle jednoho seedu je navíc optimistický: konfigurace~6 dosáhla u modelu B
-v searchi MAE 1,139, průměr přes tři seedy je 1,144.
+Nejlepší konfigurace ze searche se od výchozího nastavení ($\eta = 10^{-3}$, $\lambda = 10^{-4}$,
+dávka 64, $h = 128$; validační MAE A $1{,}154 \pm 0{,}007$, B $1{,}140 \pm 0{,}006$) liší méně
+než směrodatná odchylka a výběr podle jednoho seedu je optimistický (B: 1,139 v searchi,
+1,144 přes tři seedy).
 
 \subsection*{Průběh trénování a analýza chyb}
 
@@ -69,9 +70,8 @@ s encoderem CLIP má nižší validační chybu než ostatní modely už od prvn
     \label{fig:chyby}
 \end{figure}
 
-Analýza chyb na testovací množině (obrázek~\ref{fig:chyby}) ukazuje u všech modelů stejný vzor:
-hry s malým počtem recenzí modely přeceňují a velmi populární hry podceňují, predikce jsou tedy
-stažené ke středu rozdělení. U her s $y \ge 8$ je průměrná chyba mezi $-2{,}5$ a $-3{,}1$,
+Všechny modely přeceňují hry s malým počtem recenzí a podceňují velmi populární hry
+(obrázek~\ref{fig:chyby}), predikce jsou tedy stažené ke středu rozdělení. U her s $y \ge 8$ je průměrná chyba mezi $-2{,}5$ a $-3{,}1$,
 skutečný počet recenzí je tedy přibližně 12- až 23krát vyšší než předpověď. Obrázky pomáhají
 hlavně u málo populárních her: pro $y < 1$ je MAE nad samotnými metadaty 1,79, s modelem B 1,33
 a s modelem s encoderem CLIP 1,29. Encoder CLIP jako jediný výrazněji zmenšuje podhodnocení
@@ -100,8 +100,6 @@ nejpopulárnějších her.
 Model B má přibližně poloviční počet trénovaných parametrů než model A, každý průchod ale
 počítá celý zmrazený ConvNeXt-Tiny (27,8 milionu parametrů), a jeho inference je proto přibližně
 čtyřikrát pomalejší (tabulka~\ref{tab:naroky}). Celkový čas trénování modelu B je přesto kratší,
-protože early stopping ho zastavil po 8 až 10 epochách, zatímco model A využil všech 15. Model
-s encoderem CLIP (87,9 milionu parametrů) trénoval nejrychleji z modelů s obrázky a jeho
-inference je rychlejší než u modelu B, přestože zpracovává obrázky $224 \times 224$. Čas epochy
-zahrnuje i načítání obrázků a výpočet validačních metrik. Opakované měření rychlosti inference
-se u modelu A lišilo o 27\,\%, hodnoty jsou proto orientační.
+protože early stopping ho zastavil po 8 až 10 epochách. Model s encoderem CLIP
+(87,9 milionu parametrů) trénoval i predikoval rychleji než model B. Čas epochy zahrnuje
+načítání obrázků a validaci. Opakované měření inference se u modelu A lišilo o 27\,\%.

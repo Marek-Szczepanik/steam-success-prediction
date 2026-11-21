@@ -76,10 +76,9 @@ vrstvy s přibližně 4,2 milionu parametrů, se kterou se síť rychle přeučo
 Model B používá jako encoder síť ConvNeXt-Tiny~\cite{liu2022convnext} předtrénovanou
 na datasetu ImageNet~\cite{deng2009imagenet} z knihovny torchvision. Klasifikační vrstva
 pro 1000 tříd je odstraněna, výstupem je vektor délky $d = 768$. Váhy encoderu jsou zmrazené,
-trénuje se pouze hlava $g_\phi$ (linear probing s MLP hlavou). Obrázky jsou před vstupem
-normalizovány průměrem a směrodatnou odchylkou ImageNetu, se kterými byla síť předtrénována.
-Encoder zůstává i během trénování v režimu inference, aby se nepoužíval stochastic depth,
-který v trénovacím režimu náhodně vynechává bloky sítě. Síť byla předtrénována na obrázcích
+trénuje se pouze hlava $g_\phi$ (linear probing s MLP hlavou). Obrázky se normalizují
+statistikami ImageNetu. Encoder zůstává i během trénování v režimu inference, aby se nepoužíval
+stochastic depth, který náhodně vynechává bloky sítě. Síť byla předtrénována na obrázcích
 $224 \times 224$, zde dostává obrázky $128 \times 128$.
 
 \begin{table}[h]

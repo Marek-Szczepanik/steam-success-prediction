@@ -1,18 +1,12 @@
 \section{Závěr}
 
-Obrázky nesou o popularitě hry informaci, která v metadatech není. Oba hybridní modely mají
-na validační i testovací množině nižší MAE než všechny baseline nad metadaty a ablace ukázala,
-že kombinace obou modalit je lepší než každá zvlášť. Největší přínos měla volba předtrénovaného
-encoderu: CLIP snížil testovací MAE modelu B z 1,183 na 1,108. Rozdíl mezi vlastní CNN
-(model A) a zmrazeným ConvNeXt-Tiny (model B) je malý a při třech seedech jen orientační.
-
-Encodery modelu B byly předtrénovány na velkém množství dalších dat s mnohem větším výpočetním
-rozpočtem, nejde tedy o srovnání se stejným rozpočtem jako u modelu A. Hlavní omezení studie
-jsou hledání hyperparametrů s jedním seedem a jen pro encoder ConvNeXt, limit 15 epoch, který
-pravděpodobně omezil model A, a výstup modelů v bfloat16, který predikce zaokrouhluje
-přibližně na 0,03. Všechny modely stahují predikce ke středu rozdělení a velmi populární hry
-systematicky podhodnocují. Publikované výsledky nejsou přímo srovnatelné, protože se liší
-čištění dat, definice cílové proměnné i rozdělení dat.
+Obrázky nesou o popularitě hry informaci, která v metadatech není, a největší přínos měla volba
+předtrénovaného encoderu (CLIP). Encodery modelu B ale byly předtrénovány na velkém množství
+dalších dat s mnohem větším výpočetním rozpočtem, nejde tedy o srovnání se stejným rozpočtem
+jako u modelu A. Hlavní omezení jsou hledání hyperparametrů s jedním seedem a jen pro
+ConvNeXt, limit 15 epoch a výstup modelů v bfloat16, který predikce zaokrouhluje přibližně
+na 0,03. Publikované výsledky nejsou přímo srovnatelné, protože se liší čištění dat, definice
+cílové proměnné i rozdělení dat.
 % TODO: ověřit, zda existují publikované výsledky na tomto datasetu
 
 \subsection*{Využití generativní AI}

@@ -16,7 +16,11 @@ Prohledávaný prostor:
     \item šířka skryté vrstvy hlavy: $\{64, 128, 256\}$.
 \end{itemize}
 Learning rate a weight decay se vzorkují na logaritmické škále, protože jejich vliv závisí
-na řádu hodnoty, ne na absolutním rozdílu. Každá konfigurace je natrénována s jedním seedem
+na řádu hodnoty, ne na absolutním rozdílu. Learning rate a weight decay nejvíce ovlivňují
+optimalizaci AdamW, rozsahy proto pokrývají několik řádů kolem výchozích hodnot ($\eta = 10^{-3}$,
+$\lambda = 10^{-4}$). Velikost dávky mění šum gradientu i rychlost trénování a šířka hlavy určuje
+kapacitu části, která se u modelu B trénuje jako jediná. Dropout, optimizer a scheduler zůstávají
+kvůli výpočetnímu rozpočtu pevné. Každá konfigurace je natrénována s jedním seedem
 a vyhodnocena podle MAE na validační množině. Pro každý model je vyzkoušeno 8 konfigurací.
 Konfigurace se vzorkují se stejným seedem, takže oba modely dostávají stejné kombinace
 hyperparametrů. Nejlepší konfigurace každého modelu je poté natrénována znovu se třemi seedy.
@@ -93,15 +97,13 @@ Model B s encoderem CLIP dosáhne nižší chyby než s encoderem ConvNeXt-Tiny.
 
 \textbf{Postup:} V modelu B je encoder ConvNeXt-Tiny nahrazen obrazovou částí modelu CLIP
 ViT-B/32 s vahami od OpenAI z knihovny OpenCLIP~\cite{ilharco2021openclip}. Encoder je také
-zmrazený a jeho výstupem je vektor délky $d = 512$. Obrázky $128 \times 128$ se zvětší
-na $224 \times 224$, na kterých byl CLIP předtrénován, a normalizují se jeho průměrem
-a směrodatnou odchylkou. Hlava, trénovací postup a hyperparametry nejlepší konfigurace modelu B
-se nemění. Hyperparametry byly vybrány pro encoder ConvNeXt, což může CLIP mírně znevýhodnit.
+zmrazený s výstupem délky $d = 512$. Obrázky se zvětší na $224 \times 224$, na kterých byl
+CLIP předtrénován, a normalizují se jeho statistikami. Hlava, trénovací postup a hyperparametry
+nejlepší konfigurace modelu B se nemění. Hyperparametry byly vybrány pro encoder ConvNeXt, což může CLIP mírně znevýhodnit.
 
 \textbf{Výsledek:} S encoderem CLIP dosahuje model MAE $1{,}065 \pm 0{,}004$ a RMSE
 $1{,}436 \pm 0{,}005$ (tabulka~\ref{tab:experimenty}), tedy o 0,079 nižší MAE než s encoderem
 ConvNeXt-Tiny. Rozdíl je více než desetinásobkem směrodatné odchylky mezi seedy a hypotéza
 se potvrdila. Na logaritmické škále odpovídá rozdíl přibližně 8\,\% v odhadu počtu recenzí
-($e^{0{,}079} \approx 1{,}08$). Trénování s encoderem CLIP bylo navíc rychlejší: medián epochy
-115--136\,s oproti 299--346\,s a celkem 30 oproti 49 minutám, přestože CLIP zpracovává obrázky
-$224 \times 224$. Encoder CLIP má 87,9 milionu parametrů, trénovaná hlava 37\,825.
+($e^{0{,}079} \approx 1{,}08$). Kontrastivně předtrénovaný encoder CLIP je technikou nad rámec
+cvičení a tento experiment měří jeho přínos.

@@ -39,7 +39,8 @@ položek (zbytky HTML a BBCode) extrahují regulárním výrazem.
 
 Data jsou rozdělena časově podle roku vydání (tabulka~\ref{tab:rozdeleni}), takže se model
 vyhodnocuje na hrách vydaných později než trénovací data, stejně jako při praktickém použití.
-Jednotkou rozdělení je hra.
+Jednotkou rozdělení je hra. Cross-validace s náhodnými foldy se nepoužívá: dat je dost
+na samostatnou validační množinu a náhodné foldy by porušily časové pořadí.
 
 \begin{table}[h]
     \centering
