@@ -1,7 +1,8 @@
 """Vyhodnocení finálních modelů na validační a testovací množině.
 
-Načte nejlepší checkpointy finálních běhů (runs/<model>_seed<seed>/best.pt), spočítá MAE a RMSE,
-změří rychlost inference a souhrn uloží do results/evaluation.csv.
+Načte nejlepší checkpointy finálních běhů (runs/<běh>_seed<seed>/best.pt), spočítá MAE a RMSE,
+změří rychlost inference a souhrn uloží do results/evaluation.csv. Predikce všech modelů
+a seedů uloží do results/predictions.csv pro analýzu chyb.
 Baseline se natrénují znovu na trénovací množině stejně jako při trénování.
 """
 import json
@@ -16,6 +17,8 @@ from train import (CONFIG_FILE, DEVICE, MODEL_NAMES, RESULTS_DIR, RUNS_DIR, buil
 
 # Množiny, na kterých se modely vyhodnocují
 SPLITS = ["val", "test"]
+# Finální běhy modelů: model -> předpona složky běhu (CLIP z experimentu s encoderem)
+FINAL_RUNS = {"metadata": "mlp_metadata", "a": "model_a", "b": "model_b", "clip": "exp_clip"}
 # Velikost dávky pro vyhodnocení i měření rychlosti inference
 BATCH_SIZE = 128
 # Počet zahřívacích a měřených průchodů při měření rychlosti inference
@@ -69,18 +72,20 @@ def baseline_records(data: dict, seeds: list) -> list:
     return records
 
 
-def model_records(model_name: str, data: dict, seeds: list) -> list:
+def model_records(model_name: str, data: dict, seeds: list) -> tuple[list, dict]:
     """Vyhodnotí finální běhy modelu pro všechny seedy.
 
     Returns:
         Pro každý seed metriky na validační a testovací množině, počet parametrů,
-        čas trénování a rychlost inference.
+        čas trénování a rychlost inference. Dále predikce pro každou množinu
+        ve tvaru {množina: {"<model> <seed>": predikce}}.
     """
-    name, run_name = MODEL_NAMES[model_name]
+    name = MODEL_NAMES[model_name][0]
     loaders = {split: make_loader(model_name, data[f"X_{split}"], data[f"y_{split}"], split) for split in SPLITS}
     records = []
+    predictions: dict = {split: {} for split in SPLITS}
     for seed in seeds:
-        run_dir = RUNS_DIR / f"{run_name}_seed{seed}"
+        run_dir = RUNS_DIR / f"{FINAL_RUNS[model_name]}_seed{seed}"
         hp = json.loads((run_dir / "config.json").read_text())
         model = build_model(model_name, data["X_train"].shape[1], hp["hidden_size"]).to(DEVICE)
         model.load_state_dict(torch.load(run_dir / "best.pt", map_location=DEVICE))
@@ -88,7 +93,9 @@ def model_records(model_name: str, data: dict, seeds: list) -> list:
 
         record: dict = {"model": name}
         for split, loader in loaders.items():
-            metrics = evaluate(data[f"y_{split}"], predict(model, loader))
+            pred = predict(model, loader)
+            predictions[split][f"{name} {seed}"] = pred
+            metrics = evaluate(data[f"y_{split}"], pred)
             record.update({f"{split} {metric}": value for metric, value in metrics.items()})
         record["params total"] = sum(p.numel() for p in model.parameters())
         record["params trainable"] = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -99,7 +106,7 @@ def model_records(model_name: str, data: dict, seeds: list) -> list:
         print(f"{name}, seed {seed}: test MAE {record['test MAE']:.3f}, "
               f"inference {record['inference games/s']:.0f} her/s")
         records.append(record)
-    return records
+    return records, predictions
 
 
 if __name__ == "__main__":
@@ -115,8 +122,14 @@ if __name__ == "__main__":
     print(f"Zařízení: {gpu} | dávka pro inferenci: {BATCH_SIZE} | seedy: {config['seeds']}")
 
     records = baseline_records(data, config["seeds"])
-    for model_name in ["metadata", "a", "b"]:
-        records += model_records(model_name, data, config["seeds"])
+    # tabulky predikcí: skutečné y a predikce všech modelů a seedů pro každou množinu
+    tables = {split: pd.DataFrame({"y": data[f"y_{split}"]}) for split in SPLITS}
+    for model_name in FINAL_RUNS:
+        model_rec, predictions = model_records(model_name, data, config["seeds"])
+        records += model_rec
+        for split in SPLITS:
+            for column, pred in predictions[split].items():
+                tables[split][column] = pred
 
     # metriky: průměr a směrodatná odchylka přes seedy, ostatní sloupce: průměr
     df = pd.DataFrame(records)
@@ -129,4 +142,5 @@ if __name__ == "__main__":
 
     RESULTS_DIR.mkdir(exist_ok=True)
     summary.to_csv(RESULTS_DIR / "evaluation.csv")
+    pd.concat(tables, names=["split", "app_id"]).round(4).to_csv(RESULTS_DIR / "predictions.csv")
     print(summary.to_string())

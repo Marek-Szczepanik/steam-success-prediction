@@ -6,9 +6,7 @@
     \centering
     \begin{tabular}{lcccc}
         \toprule
-        & \multicolumn{2}{c}{Validační (2022)} & \multicolumn{2}{c}{Testovací (2023)} \\
-        \cmidrule(lr){2-3} \cmidrule(lr){4-5}
-        Model & MAE & RMSE & MAE & RMSE \\
+        Model & Val MAE & Val RMSE & Test MAE & Test RMSE \\
         \midrule
         Průměr & 1,783 & 2,130 & 1,869 & 2,208 \\
         Lineární regrese & 1,243 & 1,647 & 1,272 & 1,695 \\
@@ -18,8 +16,8 @@
         Model B & $\mathbf{1{,}144} \pm 0{,}006$ & $1{,}539 \pm 0{,}008$ & $\mathbf{1{,}183} \pm 0{,}007$ & $1{,}587 \pm 0{,}006$ \\
         \bottomrule
     \end{tabular}
-    \caption{Výsledky na validační a testovací množině: průměr $\pm$ směrodatná odchylka přes tři
-    seedy. Průměr a lineární regrese jsou deterministické.}
+    \caption{Výsledky na validační (2022) a testovací (2023) množině: průměr $\pm$ směrodatná
+    odchylka přes tři seedy. Průměr a lineární regrese jsou deterministické.}
     \label{tab:vysledky}
 \end{table}
 
